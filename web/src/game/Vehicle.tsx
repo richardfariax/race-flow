@@ -9,46 +9,33 @@ import {
   type RapierRigidBody,
 } from '@react-three/rapier';
 import type { DynamicRayCastVehicleController } from '@dimforge/rapier3d-compat';
+import type { CarSpec } from '@shared/cars';
 import { KeyboardInput, type InputSource } from '../input/input';
 import { useHudStore } from '../state/hudStore';
+import { useGameStore, type SpawnPose } from '../state/gameStore';
+import { localCar } from '../net/localCar';
 import { toonMaterial, PALETTE } from './toon';
 
 /**
- * Carro = chassis dinâmico + DynamicRayCastVehicleController do Rapier
- * (raycast vehicle: rodas são raios com suspensão, caminho testado p/ física crível no browser).
+ * Carro local = chassis dinâmico + DynamicRayCastVehicleController do Rapier.
+ * Online: este carro é a predição; o servidor valida e pode mandar correção.
  * Convenção: frente do carro = +Z local.
  */
 
-// Tuning central — cada número afeta a física de verdade.
-const CAR = {
+// geometria/suspensão comuns; forças e grip vêm do CarSpec
+const BASE = {
   chassisHalf: { x: 0.9, y: 0.35, z: 1.9 },
-  mass: 320,
   wheelRadius: 0.42,
   wheelHalfWidth: 0.17,
   suspensionRest: 0.55,
-  suspensionStiffness: 32,
   suspensionCompression: 2.4,
   suspensionRelaxation: 3.2,
   maxSuspensionTravel: 0.45,
-  frictionSlip: 2.4, // grip longitudinal/lateral base
   sideFrictionStiffness: 1.0,
-  engineForce: 5200, // tração traseira
-  reverseForce: 3000,
-  brakeForce: 45,
-  handbrakeForce: 32, // só traseira; derruba grip lateral p/ drift
-  handbrakeSideFriction: 0.35,
-  maxSteerRad: 0.62,
-  steerSpeed: 5.5, // rad/s de resposta do volante
   flipResetSeconds: 2,
 };
 
-const SPAWN = {
-  position: new THREE.Vector3(50, 1.2, 0),
-  // na pista circular (r≈50), tangente em (50,0,0) é +Z; frente do carro = +Z
-  rotation: new THREE.Quaternion(),
-};
-
-// índices das rodas: 0 FL, 1 FR, 2 RL, 3 RR
+// índices: 0 FL, 1 FR, 2 RL, 3 RR
 const WHEEL_POS = [
   new THREE.Vector3(0.82, -0.1, 1.25),
   new THREE.Vector3(-0.82, -0.1, 1.25),
@@ -62,7 +49,14 @@ const UP = new THREE.Vector3(0, 1, 0);
 const tmpVec = new THREE.Vector3();
 const tmpQuat = new THREE.Quaternion();
 
-export function Vehicle({ chassisMeshRef }: { chassisMeshRef: RefObject<THREE.Group | null> }) {
+interface VehicleProps {
+  chassisMeshRef: RefObject<THREE.Group | null>;
+  car: CarSpec;
+  spawn: SpawnPose;
+  online: boolean;
+}
+
+export function Vehicle({ chassisMeshRef, car, spawn, online }: VehicleProps) {
   const chassisRef = useRef<RapierRigidBody>(null);
   const wheelRefs = useRef<(THREE.Group | null)[]>([null, null, null, null]);
   const controllerRef = useRef<DynamicRayCastVehicleController | null>(null);
@@ -71,6 +65,9 @@ export function Vehicle({ chassisMeshRef }: { chassisMeshRef: RefObject<THREE.Gr
   const flipTimerRef = useRef(0);
   const { world } = useRapier();
   const setSpeedKmh = useHudStore((s) => s.setSpeedKmh);
+
+  const phys = car.physics;
+  const spawnQuat = new THREE.Quaternion().setFromAxisAngle(UP, spawn.yaw);
 
   useEffect(() => {
     const chassis = chassisRef.current;
@@ -83,17 +80,17 @@ export function Vehicle({ chassisMeshRef }: { chassisMeshRef: RefObject<THREE.Gr
     WHEEL_POS.forEach((pos, i) => {
       controller.addWheel(
         pos,
-        new THREE.Vector3(0, -1, 0), // direção da suspensão
-        new THREE.Vector3(-1, 0, 0), // eixo da roda
-        CAR.suspensionRest,
-        CAR.wheelRadius,
+        new THREE.Vector3(0, -1, 0),
+        new THREE.Vector3(-1, 0, 0),
+        BASE.suspensionRest,
+        BASE.wheelRadius,
       );
-      controller.setWheelSuspensionStiffness(i, CAR.suspensionStiffness);
-      controller.setWheelSuspensionCompression(i, CAR.suspensionCompression);
-      controller.setWheelSuspensionRelaxation(i, CAR.suspensionRelaxation);
-      controller.setWheelMaxSuspensionTravel(i, CAR.maxSuspensionTravel);
-      controller.setWheelFrictionSlip(i, CAR.frictionSlip);
-      controller.setWheelSideFrictionStiffness(i, CAR.sideFrictionStiffness);
+      controller.setWheelSuspensionStiffness(i, phys.suspensionStiffness);
+      controller.setWheelSuspensionCompression(i, BASE.suspensionCompression);
+      controller.setWheelSuspensionRelaxation(i, BASE.suspensionRelaxation);
+      controller.setWheelMaxSuspensionTravel(i, BASE.maxSuspensionTravel);
+      controller.setWheelFrictionSlip(i, phys.frictionSlip);
+      controller.setWheelSideFrictionStiffness(i, BASE.sideFrictionStiffness);
     });
 
     controllerRef.current = controller;
@@ -106,13 +103,27 @@ export function Vehicle({ chassisMeshRef }: { chassisMeshRef: RefObject<THREE.Gr
       input.dispose();
       inputRef.current = null;
     };
-  }, [world]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [world, car.id]);
 
-  const respawn = () => {
+  /**
+   * Reset: online endireita NO LUGAR (teleporte p/ longe seria rejeitado pelo
+   * servidor — anti-cheat); no treino volta ao spawn.
+   */
+  const reset = () => {
     const chassis = chassisRef.current;
     if (!chassis) return;
-    chassis.setTranslation(SPAWN.position, true);
-    chassis.setRotation(SPAWN.rotation, true);
+    if (online) {
+      const t = chassis.translation();
+      chassis.setTranslation({ x: t.x, y: t.y + 1.2, z: t.z }, true);
+      const rot = chassis.rotation();
+      tmpQuat.set(rot.x, rot.y, rot.z, rot.w);
+      const yaw = 2 * Math.atan2(tmpQuat.y, tmpQuat.w);
+      chassis.setRotation(new THREE.Quaternion().setFromAxisAngle(UP, yaw), true);
+    } else {
+      chassis.setTranslation({ x: spawn.x, y: spawn.y, z: spawn.z }, true);
+      chassis.setRotation(new THREE.Quaternion().setFromAxisAngle(UP, spawn.yaw), true);
+    }
     chassis.setLinvel({ x: 0, y: 0, z: 0 }, true);
     chassis.setAngvel({ x: 0, y: 0, z: 0 }, true);
     steerRef.current = 0;
@@ -125,49 +136,64 @@ export function Vehicle({ chassisMeshRef }: { chassisMeshRef: RefObject<THREE.Gr
     const input = inputRef.current;
     if (!controller || !chassis || !input) return;
 
+    // correção do servidor (estado rejeitado): acata e zera velocidades
+    if (localCar.correction) {
+      const c = localCar.correction;
+      localCar.correction = null;
+      chassis.setTranslation({ x: c.x, y: c.y, z: c.z }, true);
+      chassis.setRotation({ x: c.qx, y: c.qy, z: c.qz, w: c.qw }, true);
+      chassis.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      chassis.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
+
     const state = input.read();
     const dt = world.timestep;
 
-    // volante com resposta suave + sensibilidade reduzida em alta velocidade
+    // online: só dirige durante a corrida (largada presa no grid)
+    const phase = useGameStore.getState().phase;
+    const driveAllowed = !online || phase === 'racing' || phase === 'finished';
+    const throttle = driveAllowed ? state.throttle : 0;
+    const steerInput = driveAllowed ? state.steer : 0;
+    const handbrake = driveAllowed ? state.handbrake : true;
+
     const speed = controller.currentVehicleSpeed();
     const speedFactor = 1 / (1 + Math.abs(speed) * 0.035);
-    const targetSteer = state.steer * CAR.maxSteerRad * speedFactor;
-    const maxDelta = CAR.steerSpeed * dt;
+    const targetSteer = steerInput * phys.maxSteerRad * speedFactor;
+    const maxDelta = phys.steerSpeed * dt;
     steerRef.current += THREE.MathUtils.clamp(targetSteer - steerRef.current, -maxDelta, maxDelta);
     FRONT.forEach((i) => controller.setWheelSteering(i, steerRef.current));
 
-    // aceleração/ré na traseira; freio quando inverte o sentido
     const movingForward = speed > 0.5;
     const movingBack = speed < -0.5;
     let engine = 0;
     let brake = 0;
-    if (state.throttle > 0) {
-      if (movingBack) brake = CAR.brakeForce;
-      else engine = CAR.engineForce * state.throttle;
-    } else if (state.throttle < 0) {
-      if (movingForward) brake = CAR.brakeForce;
-      else engine = CAR.reverseForce * state.throttle;
+    if (throttle > 0) {
+      if (movingBack) brake = phys.brakeForce;
+      else engine = phys.engineForce * throttle;
+    } else if (throttle < 0) {
+      if (movingForward) brake = phys.brakeForce;
+      else engine = phys.reverseForce * throttle;
     }
     REAR.forEach((i) => {
       controller.setWheelEngineForce(i, engine);
-      controller.setWheelBrake(i, brake + (state.handbrake ? CAR.handbrakeForce : 0));
+      controller.setWheelBrake(i, brake + (handbrake ? phys.handbrakeForce : 0));
       controller.setWheelSideFrictionStiffness(
         i,
-        state.handbrake ? CAR.handbrakeSideFriction : CAR.sideFrictionStiffness,
+        handbrake ? phys.handbrakeSideFriction : BASE.sideFrictionStiffness,
       );
     });
     FRONT.forEach((i) => controller.setWheelBrake(i, brake));
 
     controller.updateVehicle(dt);
 
-    // reset manual (R), capotado por N segundos, ou caiu do mundo
+    // reset manual (R), capotado, ou caiu do mundo
     const rot = chassis.rotation();
     tmpQuat.set(rot.x, rot.y, rot.z, rot.w);
     tmpVec.copy(UP).applyQuaternion(tmpQuat);
     const upsideDown = tmpVec.y < 0.15 && Math.abs(speed) < 2;
     flipTimerRef.current = upsideDown ? flipTimerRef.current + dt : 0;
-    if (state.reset || flipTimerRef.current > CAR.flipResetSeconds || chassis.translation().y < -10) {
-      respawn();
+    if (state.reset || flipTimerRef.current > BASE.flipResetSeconds || chassis.translation().y < -10) {
+      reset();
     }
   });
 
@@ -176,11 +202,19 @@ export function Vehicle({ chassisMeshRef }: { chassisMeshRef: RefObject<THREE.Gr
     if (!controller) return;
     setSpeedKmh(Math.abs(controller.currentVehicleSpeed()) * 3.6);
 
-    // rodas: posição pela suspensão, giro e esterço
+    // publica transform interpolado p/ a rede
+    const mesh = chassisMeshRef.current;
+    if (mesh) {
+      mesh.getWorldPosition(localCar.position);
+      mesh.getWorldQuaternion(localCar.quaternion);
+      localCar.speed = controller.currentVehicleSpeed();
+      localCar.hasData = true;
+    }
+
     for (let i = 0; i < 4; i++) {
       const g = wheelRefs.current[i];
       if (!g) continue;
-      const suspension = controller.wheelSuspensionLength(i) ?? CAR.suspensionRest;
+      const suspension = controller.wheelSuspensionLength(i) ?? BASE.suspensionRest;
       g.position.set(WHEEL_POS[i].x, WHEEL_POS[i].y - suspension, WHEEL_POS[i].z);
       g.rotation.set(0, controller.wheelSteering(i) ?? 0, 0);
       const spin = controller.wheelRotation(i) ?? 0;
@@ -191,43 +225,38 @@ export function Vehicle({ chassisMeshRef }: { chassisMeshRef: RefObject<THREE.Gr
   return (
     <RigidBody
       ref={chassisRef}
-      position={SPAWN.position.toArray()}
+      position={[spawn.x, spawn.y, spawn.z]}
+      quaternion={[spawnQuat.x, spawnQuat.y, spawnQuat.z, spawnQuat.w]}
       colliders={false}
       canSleep={false}
       type="dynamic"
     >
       <CuboidCollider
-        args={[CAR.chassisHalf.x, CAR.chassisHalf.y, CAR.chassisHalf.z]}
-        mass={CAR.mass}
+        args={[BASE.chassisHalf.x, BASE.chassisHalf.y, BASE.chassisHalf.z]}
+        mass={phys.mass}
       />
       <group ref={chassisMeshRef}>
-        {/* corpo */}
-        <mesh castShadow material={toonMaterial(PALETTE.carBody)}>
-          <boxGeometry args={[CAR.chassisHalf.x * 2, 0.55, CAR.chassisHalf.z * 2]} />
+        <mesh castShadow material={toonMaterial(car.colors.body)}>
+          <boxGeometry args={[BASE.chassisHalf.x * 2, 0.55, BASE.chassisHalf.z * 2]} />
         </mesh>
-        {/* cabine */}
-        <mesh castShadow position={[0, 0.42, -0.25]} material={toonMaterial(PALETTE.carAccent)}>
+        <mesh castShadow position={[0, 0.42, -0.25]} material={toonMaterial(car.colors.accent)}>
           <boxGeometry args={[1.35, 0.5, 1.7]} />
         </mesh>
-        {/* capô/nariz (marca a frente +Z) */}
         <mesh castShadow position={[0, 0.05, 1.55]} material={toonMaterial(PALETTE.carDark)}>
           <boxGeometry args={[1.2, 0.28, 0.7]} />
         </mesh>
-        {/* aerofólio traseiro */}
         <mesh castShadow position={[0, 0.55, -1.75]} material={toonMaterial(PALETTE.carDark)}>
           <boxGeometry args={[1.6, 0.08, 0.45]} />
         </mesh>
-        {/* outline cartoon barato (casco invertido) */}
         <mesh scale={[1.06, 1.12, 1.03]}>
-          <boxGeometry args={[CAR.chassisHalf.x * 2, 0.55, CAR.chassisHalf.z * 2]} />
+          <boxGeometry args={[BASE.chassisHalf.x * 2, 0.55, BASE.chassisHalf.z * 2]} />
           <meshBasicMaterial color="#1a1a2e" side={THREE.BackSide} />
         </mesh>
-        {/* rodas (visuais; a física é raycast) */}
         {WHEEL_POS.map((_, i) => (
           <group key={i} ref={(el) => (wheelRefs.current[i] = el)}>
             <mesh castShadow material={toonMaterial(PALETTE.wheel)} rotation={[0, 0, Math.PI / 2]}>
               <cylinderGeometry
-                args={[CAR.wheelRadius, CAR.wheelRadius, CAR.wheelHalfWidth * 2, 18]}
+                args={[BASE.wheelRadius, BASE.wheelRadius, BASE.wheelHalfWidth * 2, 18]}
               />
             </mesh>
           </group>

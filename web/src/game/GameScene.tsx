@@ -1,10 +1,19 @@
 import { useRef } from 'react';
 import * as THREE from 'three';
+import type { CarSpec } from '@shared/cars';
+import type { SpawnPose } from '../state/gameStore';
 import { Track } from './Track';
 import { Vehicle } from './Vehicle';
+import { RemoteCars } from './RemoteCars';
 import { FollowCamera } from './FollowCamera';
 
-export function GameScene() {
+interface GameSceneProps {
+  car: CarSpec;
+  spawn: SpawnPose;
+  online: boolean;
+}
+
+export function GameScene({ car, spawn, online }: GameSceneProps) {
   const chassisMeshRef = useRef<THREE.Group>(null);
 
   return (
@@ -22,7 +31,8 @@ export function GameScene() {
         shadow-camera-far={250}
       />
       <Track />
-      <Vehicle chassisMeshRef={chassisMeshRef} />
+      <Vehicle chassisMeshRef={chassisMeshRef} car={car} spawn={spawn} online={online} />
+      {online && <RemoteCars />}
       <FollowCamera targetRef={chassisMeshRef} />
     </>
   );
