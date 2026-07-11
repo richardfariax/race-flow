@@ -22,6 +22,7 @@ export function LandingPage() {
   const { session, profile, signOut } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const [lb, setLb] = useState<LbRow[]>([]);
+  const [code, setCode] = useState('');
 
   useEffect(() => {
     if (!supabase) return;
@@ -103,6 +104,49 @@ export function LandingPage() {
             <span className="tag">Em breve</span>
             <h3>⏱️ Time Trial + Ghost</h3>
             <p>Contra o relógio com o fantasma da sua melhor volta. Chegando na Fase 2.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <h2>Jogar com amigos</h2>
+        <div className="cards">
+          <div className="card">
+            <span className="tag">Sala privada</span>
+            <h3>🔒 Criar sala</h3>
+            <p>Sala fora do matchmaking com código para compartilhar. Você dá a largada.</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-sm" onClick={() => navigate('/play?mode=circuit&private=1')}>
+                🏁 Corrida
+              </button>
+              <button className="btn btn-sm btn-ghost" onClick={() => navigate('/play?mode=drift&private=1')}>
+                🌀 Drift
+              </button>
+            </div>
+          </div>
+          <div className="card">
+            <span className="tag">Convite</span>
+            <h3>🎟️ Entrar com código</h3>
+            <p>Recebeu um código de um amigo? Cola aqui e cai direto na sala.</p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.trim())}
+                onKeyDown={(e) => e.key === 'Enter' && code && navigate(`/play?room=${code}`)}
+                placeholder="Código da sala"
+                style={{
+                  flex: 1,
+                  padding: '9px 12px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                }}
+              />
+              <button className="btn btn-sm" disabled={!code} onClick={() => navigate(`/play?room=${code}`)}>
+                Entrar
+              </button>
+            </div>
           </div>
         </div>
       </section>

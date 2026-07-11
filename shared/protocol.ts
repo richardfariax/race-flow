@@ -71,4 +71,13 @@ export interface JoinOptions {
   carId: string;
   /** access token do Supabase (opcional — convidado não tem) */
   token?: string;
+  /**
+   * classe de matchmaking DECLARADA (C/B/A/S, calculada de carro+tuning).
+   * Usada no filterBy; o servidor recalcula do banco e expulsa se mentir.
+   */
+  carClass?: string;
+  /** sala privada (não entra no matchmaking; amigos entram por código) */
+  private?: boolean;
 }
+
+// cliente → servidor: 'start' (só o anfitrião de sala privada, na fase lobby)

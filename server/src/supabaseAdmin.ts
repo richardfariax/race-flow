@@ -33,6 +33,26 @@ export async function verifyToken(token: string): Promise<string | null> {
   }
 }
 
+/** Tuning REAL do carro do jogador (fonte: banco, não o cliente). */
+export async function fetchTuning(
+  profileId: string,
+  carId: string,
+): Promise<Record<string, number> | null> {
+  if (!admin) return null;
+  try {
+    const { data, error } = await admin
+      .from('owned_cars')
+      .select('tuning')
+      .eq('profile_id', profileId)
+      .eq('car_id', carId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return (data.tuning as Record<string, number>) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Grava resultado + credita moedas atomicamente (RPC SECURITY DEFINER). */
 export async function applyRaceResult(params: {
   profileId: string;

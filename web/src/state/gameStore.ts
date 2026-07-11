@@ -34,6 +34,9 @@ interface GameState {
   raceTimeMs: number;
   totalLaps: number;
   mySessionId: string;
+  roomId: string;
+  hostId: string;
+  isPrivate: boolean;
   spawn: SpawnPose | null;
   standings: StandingEntry[];
   results: ResultsMsg | null;
@@ -41,6 +44,8 @@ interface GameState {
   setConnection: (c: Connection, error?: string) => void;
   setMode: (m: GameMode | 'practice') => void;
   setMySessionId: (id: string) => void;
+  setRoomId: (id: string) => void;
+  setRoomMeta: (hostId: string, isPrivate: boolean) => void;
   setSpawn: (s: SpawnPose) => void;
   setRace: (r: { phase: RacePhase; countdownMs: number; raceTimeMs: number; totalLaps: number }) => void;
   setStandings: (s: StandingEntry[]) => void;
@@ -57,6 +62,9 @@ const initial = {
   raceTimeMs: 0,
   totalLaps: TRACK.totalLaps,
   mySessionId: '',
+  roomId: '',
+  hostId: '',
+  isPrivate: false,
   spawn: null,
   standings: [],
   results: null,
@@ -67,6 +75,8 @@ export const useGameStore = create<GameState>((set) => ({
   setConnection: (connection, connectionError = '') => set({ connection, connectionError }),
   setMode: (mode) => set({ mode }),
   setMySessionId: (mySessionId) => set({ mySessionId }),
+  setRoomId: (roomId) => set({ roomId }),
+  setRoomMeta: (hostId, isPrivate) => set({ hostId, isPrivate }),
   setSpawn: (spawn) => set({ spawn }),
   setRace: (r) => set(r),
   setStandings: (standings) => set({ standings }),

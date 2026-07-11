@@ -116,6 +116,60 @@ begin
 end;
 $$;
 
+-- ---------- tuning (única via de gastar moedas em upgrades) ----------
+-- Custos e níveis espelham shared/tuning.ts; o autoritativo é ESTE.
+
+create or replace function public.upgrade_car(p_car_id text, p_category text)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_tuning jsonb;
+  v_level int;
+  v_base_cost int;
+  v_cost int;
+begin
+  if auth.uid() is null then
+    raise exception 'não autenticado';
+  end if;
+
+  v_base_cost := case p_category
+    when 'motor' then 400
+    when 'turbo' then 500
+    when 'pneus' then 300
+    when 'suspensao' then 250
+    when 'peso' then 350
+    when 'cambio' then 300
+    else null
+  end;
+  if v_base_cost is null then
+    raise exception 'categoria inválida';
+  end if;
+
+  select tuning into v_tuning
+  from owned_cars
+  where profile_id = auth.uid() and car_id = p_car_id
+  for update;
+  if not found then
+    raise exception 'carro não possuído';
+  end if;
+
+  v_level := coalesce((v_tuning ->> p_category)::int, 0);
+  if v_level >= 3 then
+    raise exception 'nível máximo atingido';
+  end if;
+
+  v_cost := v_base_cost * (v_level + 1);
+  -- débito atômico; check (coins >= 0) barra saldo insuficiente
+  update profiles set coins = coins - v_cost where id = auth.uid();
+
+  update owned_cars
+  set tuning = jsonb_set(coalesce(v_tuning, '{}'), array[p_category], to_jsonb(v_level + 1))
+  where profile_id = auth.uid() and car_id = p_car_id;
+end;
+$$;
+
 -- ---------- crédito de resultado (SÓ o servidor de jogo, via service role) ----------
 
 create or replace function public.apply_race_result(

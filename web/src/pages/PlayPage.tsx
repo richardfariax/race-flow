@@ -1,9 +1,10 @@
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import type { GameMode } from '@shared/protocol';
 import { carOrStarter } from '@shared/cars';
+import { matchClass } from '@shared/tuning';
 import { useAuth } from '../lib/auth';
 import { useGameStore, type SpawnPose } from '../state/gameStore';
 import { NetSession } from '../net/network';
@@ -23,11 +24,15 @@ function fmtMetric(mode: string, metric: number): string {
 export function PlayPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { nick, selectedCarId, token, isGuest } = useAuth();
+  const { nick, selectedCarId, tunings, token, isGuest } = useAuth();
 
   const modeParam = params.get('mode') ?? 'circuit';
-  const online = modeParam === 'circuit' || modeParam === 'drift';
+  const roomCode = params.get('room');
+  const createPrivate = params.get('private') === '1';
+  const online = roomCode !== null || modeParam === 'circuit' || modeParam === 'drift';
+
   const car = useMemo(() => carOrStarter(selectedCarId), [selectedCarId]);
+  const tuning = tunings[car.id];
 
   const connection = useGameStore((s) => s.connection);
   const connectionError = useGameStore((s) => s.connectionError);
@@ -35,10 +40,30 @@ export function PlayPage() {
   const spawn = useGameStore((s) => s.spawn);
   const results = useGameStore((s) => s.results);
   const mySessionId = useGameStore((s) => s.mySessionId);
+  const roomId = useGameStore((s) => s.roomId);
+  const hostId = useGameStore((s) => s.hostId);
+  const isPrivate = useGameStore((s) => s.isPrivate);
   const resetGame = useGameStore((s) => s.resetGame);
 
   const sessionRef = useRef<NetSession | null>(null);
-  const attempt = useRef(0);
+  const [attempt, setAttempt] = useState(0);
+  const [copied, setCopied] = useState(false);
+
+  const startJoin = useCallback(() => {
+    const session = new NetSession();
+    sessionRef.current = session;
+    void session.join({
+      nick,
+      carId: car.id,
+      token,
+      carClass: matchClass(car, tuning),
+      mode: roomCode ? undefined : (modeParam as GameMode),
+      createPrivate,
+      roomCode: roomCode ?? undefined,
+    });
+    return session;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modeParam, roomCode, createPrivate, car.id]);
 
   useEffect(() => {
     if (!online) {
@@ -47,17 +72,22 @@ export function PlayPage() {
       useGameStore.getState().setSpawn(PRACTICE_SPAWN);
       return;
     }
-    const session = new NetSession();
-    sessionRef.current = session;
-    void session.join(modeParam as GameMode, { nick, carId: car.id, token });
+    const session = startJoin();
     return () => {
       session.leave();
       resetGame();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modeParam, attempt.current]);
+  }, [online, startJoin, attempt]);
+
+  const retry = () => {
+    sessionRef.current?.leave();
+    resetGame();
+    setAttempt((a) => a + 1);
+  };
 
   const ready = spawn !== null && (!online || connection === 'connected');
+  const isHost = mySessionId !== '' && mySessionId === hostId;
 
   return (
     <div style={{ position: 'fixed', inset: 0 }}>
@@ -67,7 +97,7 @@ export function PlayPage() {
           <fog attach="fog" args={['#a9e2f5', 120, 380]} />
           <Suspense fallback={null}>
             <Physics timeStep={1 / 60}>
-              <GameScene car={car} spawn={spawn} online={online} />
+              <GameScene car={car} tuning={tuning} spawn={spawn} online={online} />
             </Physics>
           </Suspense>
         </Canvas>
@@ -90,18 +120,8 @@ export function PlayPage() {
         <div className="overlay">
           <h2>Não deu pra conectar 😕</h2>
           <p style={{ color: 'var(--muted)' }}>{connectionError}</p>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button
-              className="btn"
-              onClick={() => {
-                attempt.current++;
-                resetGame();
-                void sessionRef.current?.leave();
-                const session = new NetSession();
-                sessionRef.current = session;
-                void session.join(modeParam as GameMode, { nick, carId: car.id, token });
-              }}
-            >
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button className="btn" onClick={retry}>
               Tentar de novo
             </button>
             <button className="btn btn-ghost" onClick={() => navigate('/play?mode=practice')}>
@@ -115,8 +135,46 @@ export function PlayPage() {
       )}
 
       {online && connection === 'connected' && phase === 'lobby' && (
-        <div className="overlay transparent">
-          <h2 style={{ textShadow: '2px 2px 0 #1a1a2e' }}>Aguardando pilotos...</h2>
+        <div className={isPrivate ? 'overlay' : 'overlay transparent'}>
+          {isPrivate ? (
+            <>
+              <h2>Sala privada</h2>
+              <p style={{ color: 'var(--muted)' }}>Passe o código para os amigos:</p>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  alignItems: 'center',
+                  background: 'var(--card)',
+                  padding: '10px 18px',
+                  borderRadius: 12,
+                }}
+              >
+                <code style={{ fontSize: 26, fontWeight: 900, letterSpacing: 2, color: 'var(--accent)' }}>
+                  {roomId}
+                </code>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(roomId);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  }}
+                >
+                  {copied ? 'Copiado!' : 'Copiar'}
+                </button>
+              </div>
+              {isHost ? (
+                <button className="btn btn-primary" onClick={() => sessionRef.current?.send('start')}>
+                  🏁 Começar corrida
+                </button>
+              ) : (
+                <p style={{ color: 'var(--muted)' }}>Aguardando o anfitrião dar a largada...</p>
+              )}
+            </>
+          ) : (
+            <h2 style={{ textShadow: '2px 2px 0 #1a1a2e' }}>Aguardando pilotos...</h2>
+          )}
         </div>
       )}
 
@@ -162,14 +220,7 @@ export function PlayPage() {
               <button
                 className="btn btn-primary"
                 style={{ fontSize: 16, padding: '12px 22px' }}
-                onClick={() => {
-                  attempt.current++;
-                  sessionRef.current?.leave();
-                  resetGame();
-                  const session = new NetSession();
-                  sessionRef.current = session;
-                  void session.join(modeParam as GameMode, { nick, carId: car.id, token });
-                }}
+                onClick={retry}
               >
                 Correr de novo
               </button>

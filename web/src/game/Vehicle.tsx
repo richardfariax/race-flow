@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import {
@@ -10,6 +10,7 @@ import {
 } from '@react-three/rapier';
 import type { DynamicRayCastVehicleController } from '@dimforge/rapier3d-compat';
 import type { CarSpec } from '@shared/cars';
+import { effectiveSpec, type Tuning } from '@shared/tuning';
 import { KeyboardInput, type InputSource } from '../input/input';
 import { useHudStore } from '../state/hudStore';
 import { useGameStore, type SpawnPose } from '../state/gameStore';
@@ -33,6 +34,8 @@ const BASE = {
   maxSuspensionTravel: 0.45,
   sideFrictionStiffness: 1.0,
   flipResetSeconds: 2,
+  /** μ da tração: força de motor acima de μ×carga no eixo vira patinação */
+  tractionMu: 1.15,
 };
 
 // índices: 0 FL, 1 FR, 2 RL, 3 RR
@@ -52,21 +55,29 @@ const tmpQuat = new THREE.Quaternion();
 interface VehicleProps {
   chassisMeshRef: RefObject<THREE.Group | null>;
   car: CarSpec;
+  tuning?: Tuning;
   spawn: SpawnPose;
   online: boolean;
 }
 
-export function Vehicle({ chassisMeshRef, car, spawn, online }: VehicleProps) {
+export function Vehicle({ chassisMeshRef, car, tuning, spawn, online }: VehicleProps) {
   const chassisRef = useRef<RapierRigidBody>(null);
   const wheelRefs = useRef<(THREE.Group | null)[]>([null, null, null, null]);
   const controllerRef = useRef<DynamicRayCastVehicleController | null>(null);
   const inputRef = useRef<InputSource | null>(null);
   const steerRef = useRef(0);
   const flipTimerRef = useRef(0);
+  const slipRef = useRef(0); // 0..1: quanto da força pedida está patinando
+  const slipSpinRef = useRef(0); // giro visual extra das rodas traseiras
   const { world } = useRapier();
   const setSpeedKmh = useHudStore((s) => s.setSpeedKmh);
 
-  const phys = car.physics;
+  const tuningKey = JSON.stringify(tuning ?? {});
+  const phys = useMemo(
+    () => effectiveSpec(car, tuning).physics,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [car.id, tuningKey],
+  );
   const spawnQuat = new THREE.Quaternion().setFromAxisAngle(UP, spawn.yaw);
 
   useEffect(() => {
@@ -104,7 +115,7 @@ export function Vehicle({ chassisMeshRef, car, spawn, online }: VehicleProps) {
       inputRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [world, car.id]);
+  }, [world, phys]);
 
   /**
    * Reset: online endireita NO LUGAR (teleporte p/ longe seria rejeitado pelo
@@ -165,7 +176,7 @@ export function Vehicle({ chassisMeshRef, car, spawn, online }: VehicleProps) {
 
     const movingForward = speed > 0.5;
     const movingBack = speed < -0.5;
-    let engine = 0;
+    let engine = 0; // força TOTAL no eixo traseiro
     let brake = 0;
     if (throttle > 0) {
       if (movingBack) brake = phys.brakeForce;
@@ -174,13 +185,35 @@ export function Vehicle({ chassisMeshRef, car, spawn, online }: VehicleProps) {
       if (movingForward) brake = phys.brakeForce;
       else engine = phys.reverseForce * throttle;
     }
-    REAR.forEach((i) => {
-      controller.setWheelEngineForce(i, engine);
-      controller.setWheelBrake(i, brake + (handbrake ? phys.handbrakeForce : 0));
-      controller.setWheelSideFrictionStiffness(
-        i,
-        handbrake ? phys.handbrakeSideFriction : BASE.sideFrictionStiffness,
+
+    // Tração limitada pelo peso sobre o eixo traseiro: pedir mais força do que
+    // μ×carga não empina o carro — PATINA (arrancada vira burnout, e sem
+    // contato no chão não há empuxo nenhum).
+    let applied = engine;
+    slipRef.current = 0;
+    if (engine !== 0) {
+      const rearLoad = REAR.reduce(
+        (sum, i) =>
+          sum + (controller.wheelIsInContact(i) ? controller.wheelSuspensionForce(i) ?? 0 : 0),
+        0,
       );
+      const maxTraction = BASE.tractionMu * rearLoad;
+      const wanted = Math.abs(engine);
+      if (wanted > maxTraction) {
+        applied = Math.sign(engine) * maxTraction;
+        slipRef.current = 1 - maxTraction / wanted;
+      }
+    }
+
+    // patinando o carro fica levemente solto de traseira (powerslide)
+    const rearSideFriction = handbrake
+      ? phys.handbrakeSideFriction
+      : BASE.sideFrictionStiffness * (1 - 0.4 * slipRef.current);
+
+    REAR.forEach((i) => {
+      controller.setWheelEngineForce(i, applied / 2);
+      controller.setWheelBrake(i, brake + (handbrake ? phys.handbrakeForce : 0));
+      controller.setWheelSideFrictionStiffness(i, rearSideFriction);
     });
     FRONT.forEach((i) => controller.setWheelBrake(i, brake));
 
@@ -197,10 +230,13 @@ export function Vehicle({ chassisMeshRef, car, spawn, online }: VehicleProps) {
     }
   });
 
-  useFrame(() => {
+  useFrame((_state, frameDt) => {
     const controller = controllerRef.current;
     if (!controller) return;
     setSpeedKmh(Math.abs(controller.currentVehicleSpeed()) * 3.6);
+
+    // giro visual extra das rodas traseiras enquanto patinam
+    slipSpinRef.current += slipRef.current * 45 * frameDt;
 
     // publica transform interpolado p/ a rede
     const mesh = chassisMeshRef.current;
@@ -217,7 +253,7 @@ export function Vehicle({ chassisMeshRef, car, spawn, online }: VehicleProps) {
       const suspension = controller.wheelSuspensionLength(i) ?? BASE.suspensionRest;
       g.position.set(WHEEL_POS[i].x, WHEEL_POS[i].y - suspension, WHEEL_POS[i].z);
       g.rotation.set(0, controller.wheelSteering(i) ?? 0, 0);
-      const spin = controller.wheelRotation(i) ?? 0;
+      const spin = (controller.wheelRotation(i) ?? 0) + (REAR.includes(i) ? slipSpinRef.current : 0);
       g.children[0]?.rotation.set(-spin, 0, Math.PI / 2);
     }
   });
@@ -231,9 +267,16 @@ export function Vehicle({ chassisMeshRef, car, spawn, online }: VehicleProps) {
       canSleep={false}
       type="dynamic"
     >
+      {/* massa dividida: casco leve + lastro embaixo → centro de massa baixo
+          (carro não empina nem tomba fácil; física de kart arcade crível) */}
       <CuboidCollider
         args={[BASE.chassisHalf.x, BASE.chassisHalf.y, BASE.chassisHalf.z]}
-        mass={phys.mass}
+        mass={phys.mass * 0.35}
+      />
+      <CuboidCollider
+        args={[BASE.chassisHalf.x * 0.85, 0.1, BASE.chassisHalf.z * 0.8]}
+        position={[0, -0.3, 0]}
+        mass={phys.mass * 0.65}
       />
       <group ref={chassisMeshRef}>
         <mesh castShadow material={toonMaterial(car.colors.body)}>

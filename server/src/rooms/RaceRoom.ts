@@ -1,6 +1,7 @@
 import { Room, type Client } from 'colyseus';
 import { Schema, MapSchema, type } from '@colyseus/schema';
 import { carOrStarter } from '../../../shared/cars';
+import { effectiveSpec, matchClass, type Tuning } from '../../../shared/tuning';
 import { TRACK, spawnSlot, checkpointAt } from '../../../shared/track';
 import {
   NET,
@@ -9,7 +10,7 @@ import {
   type JoinOptions,
   type ResultEntry,
 } from '../../../shared/protocol';
-import { verifyToken, applyRaceResult } from '../supabaseAdmin';
+import { verifyToken, applyRaceResult, fetchTuning } from '../supabaseAdmin';
 
 /**
  * Sala autoritativa de corrida (circuit) e drift.
@@ -47,11 +48,16 @@ export class RaceState extends Schema {
   @type('number') countdownMs = 0;
   @type('number') raceTimeMs = 0;
   @type('uint8') totalLaps = TRACK.totalLaps;
+  @type('boolean') isPrivate = false;
+  /** anfitrião (sala privada): quem pode dar a largada */
+  @type('string') hostId = '';
   @type({ map: PlayerState }) players = new MapSchema<PlayerState>();
 }
 
 interface PlayerRuntime {
   profileId: string | null;
+  /** vel. máx efetiva (carro + tuning REAL do banco) p/ validação */
+  maxSpeedKmh: number;
   lastMsgAt: number;
   lastValid: { x: number; y: number; z: number; qx: number; qy: number; qz: number; qw: number };
   violations: number;
@@ -78,6 +84,8 @@ export class RaceRoom extends Room<{ state: RaceState }> {
 
   private runtime = new Map<string, PlayerRuntime>();
   private nextSlot = 0;
+  /** classe da sala (matchmaking); null até o 1º jogador definir */
+  private expectedClass: string | null = null;
   private lobbyStartedAt = 0;
   private raceStartedAt = 0;
   private firstFinishAt = 0;
@@ -87,16 +95,41 @@ export class RaceRoom extends Room<{ state: RaceState }> {
   onCreate(options: Partial<JoinOptions>) {
     const state = new RaceState();
     state.mode = options.mode === 'drift' ? 'drift' : 'circuit';
+    state.isPrivate = options.private === true;
     this.setState(state);
     this.patchRate = NET.patchIntervalMs;
+    this.expectedClass = typeof options.carClass === 'string' ? options.carClass : null;
+    if (state.isPrivate) this.setPrivate(true).catch(() => {});
 
     this.onMessage('state', (client, msg: ClientStateMsg) => this.handleState(client, msg));
+    this.onMessage('start', (client) => {
+      // largada manual: só anfitrião de sala privada, no lobby
+      if (this.state.isPrivate && this.state.phase === 'lobby' && client.sessionId === this.state.hostId) {
+        this.beginCountdown();
+      }
+    });
     this.setSimulationInterval((dt) => this.tick(dt), NET.patchIntervalMs);
     this.lobbyStartedAt = now();
   }
 
   async onJoin(client: Client, options: Partial<JoinOptions>) {
     const car = carOrStarter(options.carId);
+
+    // tuning REAL vem do banco (nunca do cliente); convidado não tem tuning
+    let tuning: Tuning | null = null;
+    let profileId: string | null = null;
+    if (options.token) {
+      profileId = await verifyToken(options.token);
+      if (profileId) tuning = (await fetchTuning(profileId, car.id)) as Tuning | null;
+    }
+
+    // matchmaking justo: classe declarada precisa bater com a recalculada
+    const realClass = matchClass(car, tuning ?? undefined);
+    if (this.expectedClass === null) this.expectedClass = realClass;
+    if (realClass !== this.expectedClass) {
+      throw new Error(`classe inválida: sala ${this.expectedClass}, seu carro é ${realClass}`);
+    }
+
     const slotIndex = this.nextSlot++;
     const slot = spawnSlot(slotIndex);
 
@@ -109,9 +142,11 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     p.qy = Math.sin(slot.yaw / 2);
     p.qw = Math.cos(slot.yaw / 2);
     this.state.players.set(client.sessionId, p);
+    if (!this.state.hostId) this.state.hostId = client.sessionId;
 
     this.runtime.set(client.sessionId, {
-      profileId: null,
+      profileId,
+      maxSpeedKmh: effectiveSpec(car, tuning ?? undefined).maxSpeedKmh,
       lastMsgAt: 0,
       lastValid: { x: p.x, y: p.y, z: p.z, qx: 0, qy: p.qy, qz: 0, qw: p.qw },
       violations: 0,
@@ -120,18 +155,21 @@ export class RaceRoom extends Room<{ state: RaceState }> {
       slot: slotIndex,
       driftComboTime: 0,
     });
-
-    // autenticação opcional (convidado joga sem token; economia exige token válido)
-    if (options.token) {
-      const profileId = await verifyToken(options.token);
-      const rt = this.runtime.get(client.sessionId);
-      if (rt) rt.profileId = profileId;
-    }
   }
 
   onLeave(client: Client) {
     this.state.players.delete(client.sessionId);
     this.runtime.delete(client.sessionId);
+    // anfitrião saiu no lobby: passa o bastão
+    if (this.state.hostId === client.sessionId) {
+      this.state.hostId = this.clients[0]?.sessionId ?? '';
+    }
+  }
+
+  private beginCountdown() {
+    this.state.phase = 'countdown';
+    this.state.countdownMs = NET.countdownMs;
+    this.lock().catch(() => {});
   }
 
   // ---------- estado do cliente + validação de sanidade ----------
@@ -149,9 +187,9 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     const dt = rt.lastMsgAt ? Math.min((t - rt.lastMsgAt) / 1000, 0.5) : 1 / NET.stateSendHz;
     rt.lastMsgAt = t;
 
-    // anti-teleporte: deslocamento máximo plausível p/ o carro no intervalo
-    const car = carOrStarter(p.carId);
-    const maxDist = (car.maxSpeedKmh / 3.6) * NET.speedValidationMargin * dt + 0.5;
+    // anti-teleporte: deslocamento máximo plausível p/ carro+tuning no intervalo
+    const maxKmh = rt.maxSpeedKmh;
+    const maxDist = (maxKmh / 3.6) * NET.speedValidationMargin * dt + 0.5;
     const dx = msg.x - rt.lastValid.x;
     const dy = msg.y - rt.lastValid.y;
     const dz = msg.z - rt.lastValid.z;
@@ -171,7 +209,7 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     p.qy = msg.qy;
     p.qz = msg.qz;
     p.qw = msg.qw;
-    p.speed = Math.min(Math.abs(msg.speed), (car.maxSpeedKmh / 3.6) * NET.speedValidationMargin);
+    p.speed = Math.min(Math.abs(msg.speed), (maxKmh / 3.6) * NET.speedValidationMargin);
 
     if (this.state.mode === 'circuit') this.updateCheckpoints(p, rt);
     else this.updateDrift(p, rt, dx, dz, dist, dt);
@@ -244,10 +282,13 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     const t = now();
     switch (this.state.phase) {
       case 'lobby': {
-        if (this.clients.length >= NET.minPlayers && t - this.lobbyStartedAt >= NET.lobbyWaitMs) {
-          this.state.phase = 'countdown';
-          this.state.countdownMs = NET.countdownMs;
-          this.lock().catch(() => {});
+        // sala privada só larga quando o anfitrião mandar 'start'
+        if (
+          !this.state.isPrivate &&
+          this.clients.length >= NET.minPlayers &&
+          t - this.lobbyStartedAt >= NET.lobbyWaitMs
+        ) {
+          this.beginCountdown();
         }
         break;
       }

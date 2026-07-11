@@ -10,6 +10,7 @@ import {
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { STARTER_CAR_ID } from '@shared/cars';
+import type { Tuning } from '@shared/tuning';
 
 /**
  * Conta (Supabase) + convidado.
@@ -31,6 +32,8 @@ interface AuthCtx {
   session: Session | null;
   profile: Profile | null;
   ownedCarIds: string[];
+  /** tuning por carId (só carros possuídos; convidado = vazio) */
+  tunings: Record<string, Tuning>;
   /** nick efetivo (perfil ou convidado) */
   nick: string;
   selectedCarId: string;
@@ -41,6 +44,7 @@ interface AuthCtx {
   signUp: (email: string, password: string, nick: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   buyCar: (carId: string) => Promise<string | null>;
+  upgradeCar: (carId: string, category: string) => Promise<string | null>;
   selectCar: (carId: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -59,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [ownedCarIds, setOwnedCarIds] = useState<string[]>([STARTER_CAR_ID]);
+  const [tunings, setTunings] = useState<Record<string, Tuning>>({});
   const [guestCarId, setGuestCarId] = useState(STARTER_CAR_ID);
   const guestNick = useMemo(makeGuestNick, []);
 
@@ -69,14 +74,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!uid) {
       setProfile(null);
       setOwnedCarIds([STARTER_CAR_ID]);
+      setTunings({});
       return;
     }
     const [{ data: prof }, { data: owned }] = await Promise.all([
       supabase.from('profiles').select('id, nick, coins, level, xp, selected_car').eq('id', uid).single(),
-      supabase.from('owned_cars').select('car_id').eq('profile_id', uid),
+      supabase.from('owned_cars').select('car_id, tuning').eq('profile_id', uid),
     ]);
     if (prof) setProfile(prof as Profile);
-    if (owned) setOwnedCarIds(owned.map((o) => o.car_id as string));
+    if (owned) {
+      setOwnedCarIds(owned.map((o) => o.car_id as string));
+      setTunings(
+        Object.fromEntries(owned.map((o) => [o.car_id as string, (o.tuning ?? {}) as Tuning])),
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -123,6 +134,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [session, refreshProfile],
   );
 
+  const upgradeCar = useCallback(
+    async (carId: string, category: string) => {
+      if (!supabase || !session) return 'Crie uma conta para tunar carros.';
+      const { error } = await supabase.rpc('upgrade_car', {
+        p_car_id: carId,
+        p_category: category,
+      });
+      if (error) return error.message;
+      await refreshProfile();
+      return null;
+    },
+    [session, refreshProfile],
+  );
+
   const selectCar = useCallback(
     async (carId: string) => {
       if (supabase && session) {
@@ -140,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     profile,
     ownedCarIds,
+    tunings,
     nick: profile?.nick ?? guestNick,
     selectedCarId: profile?.selected_car ?? guestCarId,
     token: session?.access_token,
@@ -148,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signOut,
     buyCar,
+    upgradeCar,
     selectCar,
     refreshProfile,
   };

@@ -46,7 +46,8 @@ export const CARS: Record<string, CarSpec> = {
       brakeForce: 45,
       handbrakeForce: 32,
       handbrakeSideFriction: 0.35,
-      frictionSlip: 2.4,
+      // ~default do raycast vehicle (10.5): abaixo disso o carro ara reto
+      frictionSlip: 10.5,
       maxSteerRad: 0.62,
       steerSpeed: 5.5,
       suspensionStiffness: 32,
@@ -66,7 +67,7 @@ export const CARS: Record<string, CarSpec> = {
       brakeForce: 52,
       handbrakeForce: 34,
       handbrakeSideFriction: 0.4,
-      frictionSlip: 2.6,
+      frictionSlip: 11.5,
       maxSteerRad: 0.58,
       steerSpeed: 6,
       suspensionStiffness: 36,
@@ -86,7 +87,7 @@ export const CARS: Record<string, CarSpec> = {
       brakeForce: 60,
       handbrakeForce: 38,
       handbrakeSideFriction: 0.28, // rainha do drift
-      frictionSlip: 2.5,
+      frictionSlip: 10.0, // traseira mais viva que o Falcão
       maxSteerRad: 0.55,
       steerSpeed: 6.5,
       suspensionStiffness: 40,

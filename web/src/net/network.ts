@@ -12,26 +12,50 @@ import { pushSnap, pruneBuffers, remoteBuffers } from './remoteBuffer';
 
 const SERVER_URL = (import.meta.env.VITE_GAME_SERVER_URL as string | undefined) ?? 'ws://localhost:2567';
 
+export interface JoinRequest {
+  nick: string;
+  carId: string;
+  token?: string;
+  /** classe declarada (o servidor recalcula do banco e expulsa se divergir) */
+  carClass: string;
+  /** modo (ignorado ao entrar por código — a sala já tem modo) */
+  mode?: GameMode;
+  /** cria sala privada (fora do matchmaking) */
+  createPrivate?: boolean;
+  /** entra numa sala existente pelo código (roomId) */
+  roomCode?: string;
+}
+
 export class NetSession {
   private room: Room | null = null;
   private sendTimer: number | null = null;
   private disposed = false;
 
-  async join(mode: GameMode, opts: { nick: string; carId: string; token?: string }): Promise<void> {
+  send(type: string, msg?: unknown): void {
+    this.room?.send(type, msg);
+  }
+
+  async join(req: JoinRequest): Promise<void> {
     const store = useGameStore.getState();
     store.resetGame();
-    store.setMode(mode);
+    if (req.mode) store.setMode(req.mode);
     store.setConnection('connecting');
     remoteBuffers.clear();
 
     try {
       const client = new Client(SERVER_URL);
-      const room = await client.joinOrCreate('race', { mode, ...opts });
+      const opts = { nick: req.nick, carId: req.carId, token: req.token, carClass: req.carClass };
+      const room = req.roomCode
+        ? await client.joinById(req.roomCode, opts)
+        : req.createPrivate
+          ? await client.create('race', { ...opts, mode: req.mode, private: true })
+          : await client.joinOrCreate('race', { ...opts, mode: req.mode });
       if (this.disposed) {
         room.leave();
         return;
       }
       this.room = room;
+      useGameStore.getState().setRoomId(room.roomId);
 
       useGameStore.getState().setMySessionId(room.sessionId);
       useGameStore.getState().setConnection('connected');
@@ -58,12 +82,16 @@ export class NetSession {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private readState(state: any): void {
     const store = useGameStore.getState();
+    if (store.mode !== state.mode) store.setMode(state.mode); // joinById não sabe o modo
     store.setRace({
       phase: state.phase,
       countdownMs: state.countdownMs,
       raceTimeMs: state.raceTimeMs,
       totalLaps: state.totalLaps,
     });
+    if (store.hostId !== state.hostId || store.isPrivate !== state.isPrivate) {
+      store.setRoomMeta(state.hostId, state.isPrivate);
+    }
 
     const standings: StandingEntry[] = [];
     const alive = new Set<string>();

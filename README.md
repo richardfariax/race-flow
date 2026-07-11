@@ -11,7 +11,12 @@ Jogo de corrida multiplayer cartoon, 100% no navegador. Física de veículo via 
 - [x] Contas (Supabase Auth) + modo convidado sem atrito; landing page com "Jogar agora"
 - [x] Loja/garagem: 3 carros (classes C/B/A) com física real distinta; compra via RPC validada no banco
 - [x] Leaderboard simples (melhor tempo por piloto) na landing
-- [ ] Fase 2: tuning, matchmaking por classe, Time Trial + ghost, desafios diários, amigos/lobby privado
+- [x] **Fase 2 (parcial)**: tuning de performance (6 categorias com trade-offs, muda a física de verdade), PR + matchmaking por classe (servidor recalcula do banco e expulsa classe mentida), lobby privado por código com largada do anfitrião
+- [ ] Fase 2 (restante): Time Trial + ghost, desafios diários, amigos, livery/cosméticos
+
+### Modelo de física do carro (pós-playtest)
+
+Tração traseira limitada por μ×carga no eixo: pedir mais força do que o pneu segura não empina — **patina** (burnout na arrancada, giro visual extra, traseira levemente solta). Centro de massa rebaixado por lastro no chassi. Grip lateral no padrão do raycast vehicle (`frictionSlip` ≈ 10.5 — valores baixos fazem o carro "arar" reto): curvas normais têm direção normal; **drift é deliberado**, via freio de mão (derruba o grip lateral traseiro) ou powerslide de aceleração.
 
 ## Estrutura
 
@@ -67,11 +72,13 @@ Cliente simula o próprio carro (Rapier local = predição imediata, sem input l
 - Corrida: lobby → countdown → racing → finished; 3 voltas contadas no servidor com tempos por volta; resultado com posição/moedas.
 - Anti-cheat: teleporte de ~40m rejeitado (exatamente 1 `correction`), corrida segue normal depois.
 - Drift: score acumula só derrapando (yaw ≠ trajetória), combo cresce até o teto, resultado com moedas.
+- Sala privada: criada com código, amigo entra por `joinById`, NÃO auto-inicia após o lobby normal, largada só quando o anfitrião manda `start`.
 - Typecheck estrito + build de produção de `web/` e `server/`.
 
 ## Não testado (declarado)
 
-- Gameplay 3D em runtime (sandbox sem WebGL): tuning de física dos 3 carros, câmera, visual das rodas.
+- Gameplay 3D em runtime (sandbox sem WebGL): os novos valores de grip/tração/lastro seguem a referência do raycast vehicle, mas precisam de playtest seu — me diga como ficou a sensação de curva/drift.
+- RPC `upgrade_car` num Supabase real (validada por leitura; se você já aplicou o schema antes, rode só o bloco novo `upgrade_car` no SQL Editor).
 - Fluxo Supabase real (signup → trigger de perfil → compra → crédito pós-corrida): schema não foi aplicado num projeto real; RPCs/RLS validados por leitura, não por execução.
 - Deploy Vercel/Render (precisa das suas contas).
 - Mobile/touch (input abstraído, implementação touch é Fase 2) e gamepad.
