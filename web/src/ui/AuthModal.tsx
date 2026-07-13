@@ -1,5 +1,14 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/auth';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 export function AuthModal({ onClose }: { onClose: () => void }) {
   const { signIn, signUp, supabaseEnabled } = useAuth();
@@ -21,51 +30,67 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>{mode === 'login' ? 'Entrar' : 'Criar conta'}</h3>
-        {!supabaseEnabled && (
-          <p className="error">
-            Supabase não configurado neste ambiente — jogue como convidado (progresso não salva).
-          </p>
-        )}
-        {mode === 'signup' && (
-          <input
-            placeholder="Nick (até 16 caracteres)"
-            value={nick}
-            maxLength={16}
-            onChange={(e) => setNick(e.target.value)}
-          />
-        )}
-        <input
-          placeholder="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          placeholder="Senha"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && submit()}
-        />
-        {error && <p className="error">{error}</p>}
-        <button className="btn" style={{ width: '100%' }} disabled={busy || !supabaseEnabled} onClick={submit}>
-          {busy ? '...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
-        </button>
-        <p className="switch">
-          {mode === 'login' ? (
-            <>
-              Não tem conta? <a onClick={() => setMode('signup')}>Criar conta</a>
-            </>
-          ) : (
-            <>
-              Já tem conta? <a onClick={() => setMode('login')}>Entrar</a>
-            </>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{mode === 'login' ? 'Entrar' : 'Criar conta'}</DialogTitle>
+          <DialogDescription>
+            {supabaseEnabled
+              ? 'Use email e senha para sincronizar progresso e moedas.'
+              : 'Supabase não configurado — jogue como convidado (progresso não salva).'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-3">
+          {!supabaseEnabled && (
+            <p className="text-sm text-destructive">
+              Supabase não configurado neste ambiente — jogue como convidado (progresso não salva).
+            </p>
           )}
-        </p>
-      </div>
-    </div>
+          {mode === 'signup' && (
+            <Input
+              placeholder="Nick (até 16 caracteres)"
+              value={nick}
+              maxLength={16}
+              onChange={(e) => setNick(e.target.value)}
+            />
+          )}
+          <Input
+            placeholder="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Input
+            placeholder="Senha"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && void submit()}
+          />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button className="w-full" disabled={busy || !supabaseEnabled} onClick={() => void submit()}>
+            {busy ? '...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
+          </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            {mode === 'login' ? (
+              <>
+                Não tem conta?{' '}
+                <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={() => setMode('signup')}>
+                  Criar conta
+                </button>
+              </>
+            ) : (
+              <>
+                Já tem conta?{' '}
+                <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={() => setMode('login')}>
+                  Entrar
+                </button>
+              </>
+            )}
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
