@@ -1,6 +1,6 @@
 /** Constantes e mensagens de rede — compartilhadas cliente/servidor. */
 
-export type GameMode = 'circuit' | 'drift';
+export type GameMode = 'circuit' | 'drift' | 'timetrial';
 export type RacePhase = 'lobby' | 'countdown' | 'racing' | 'finished';
 
 export const NET = {
@@ -15,6 +15,8 @@ export const NET = {
   lobbyWaitMs: 5000,
   countdownMs: 3000,
   driftDurationMs: 120_000,
+  /** time trial: sessão solo, vale a melhor volta */
+  timetrialDurationMs: 300_000,
   /** tempo extra após o 1º terminar (circuit) */
   finishTimeoutMs: 30_000,
   /** teto duro da corrida */
@@ -78,6 +80,10 @@ export interface JoinOptions {
   carClass?: string;
   /** sala privada (não entra no matchmaking; amigos entram por código) */
   private?: boolean;
+  /** cosméticos (hex #rrggbb; validados no servidor; não afetam performance) */
+  bodyColor?: string;
+  accentColor?: string;
 }
 
 // cliente → servidor: 'start' (só o anfitrião de sala privada, na fase lobby)
+// cliente → servidor: 'finishTT' (time trial: encerrar cedo e salvar melhor volta)
