@@ -8,6 +8,8 @@ export interface StandingEntry {
   sessionId: string;
   nick: string;
   carId: string;
+  bodyColor: string;
+  accentColor: string;
   lap: number;
   checkpoint: number;
   driftScore: number;
