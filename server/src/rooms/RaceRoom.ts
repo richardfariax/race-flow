@@ -23,7 +23,9 @@ import { verifyToken, applyRaceResult, fetchTuning } from '../supabaseAdmin';
 
 export class PlayerState extends Schema {
   @type('string') nick = '';
-  @type('string') carId = 'vega';
+  @type('string') carId = 'golf_gti';
+  @type('string') bodyColor = '';
+  @type('string') accentColor = '';
   @type('number') x = 0;
   @type('number') y = 0;
   @type('number') z = 0;
@@ -78,9 +80,12 @@ function sanitizeNick(raw: unknown): string {
 }
 
 const CIRCUIT_REWARDS = [200, 120, 80, 50, 40, 30, 20, 10];
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+/** encurtável em teste/dev via env (não é segredo) */
+const LOBBY_WAIT_MS = Number(process.env.RF_LOBBY_WAIT_MS ?? NET.lobbyWaitMs);
 
 export class RaceRoom extends Room<{ state: RaceState }> {
-  maxClients = NET.maxPlayers;
+  maxClients: number = NET.maxPlayers;
 
   private runtime = new Map<string, PlayerRuntime>();
   private nextSlot = 0;
@@ -94,10 +99,13 @@ export class RaceRoom extends Room<{ state: RaceState }> {
 
   onCreate(options: Partial<JoinOptions>) {
     const state = new RaceState();
-    state.mode = options.mode === 'drift' ? 'drift' : 'circuit';
+    state.mode =
+      options.mode === 'drift' ? 'drift' : options.mode === 'timetrial' ? 'timetrial' : 'circuit';
     state.isPrivate = options.private === true;
     this.setState(state);
     this.patchRate = NET.patchIntervalMs;
+    // time trial é sessão solo (contra o relógio; ghost é local do cliente)
+    if (state.mode === 'timetrial') this.maxClients = 1;
     this.expectedClass = typeof options.carClass === 'string' ? options.carClass : null;
     if (state.isPrivate) this.setPrivate(true).catch(() => {});
 
@@ -107,6 +115,10 @@ export class RaceRoom extends Room<{ state: RaceState }> {
       if (this.state.isPrivate && this.state.phase === 'lobby' && client.sessionId === this.state.hostId) {
         this.beginCountdown();
       }
+    });
+    this.onMessage('finishTT', () => {
+      // time trial: encerra cedo e salva a melhor volta
+      if (this.state.mode === 'timetrial' && this.state.phase === 'racing') this.finishRace();
     });
     this.setSimulationInterval((dt) => this.tick(dt), NET.patchIntervalMs);
     this.lobbyStartedAt = now();
@@ -136,8 +148,13 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     const p = new PlayerState();
     p.nick = sanitizeNick(options.nick);
     p.carId = car.id;
+    // cosmético não afeta física — só valida o formato
+    if (typeof options.bodyColor === 'string' && HEX_COLOR.test(options.bodyColor))
+      p.bodyColor = options.bodyColor;
+    if (typeof options.accentColor === 'string' && HEX_COLOR.test(options.accentColor))
+      p.accentColor = options.accentColor;
     p.x = slot.x;
-    p.y = 1.2;
+    p.y = slot.y; // altura do asfalto + folga da suspensão (relevo)
     p.z = slot.z;
     p.qy = Math.sin(slot.yaw / 2);
     p.qw = Math.cos(slot.yaw / 2);
@@ -211,15 +228,15 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     p.qw = msg.qw;
     p.speed = Math.min(Math.abs(msg.speed), (maxKmh / 3.6) * NET.speedValidationMargin);
 
-    if (this.state.mode === 'circuit') this.updateCheckpoints(p, rt);
-    else this.updateDrift(p, rt, dx, dz, dist, dt);
+    if (this.state.mode === 'drift') this.updateDrift(p, rt, dx, dz, dist, dt);
+    else this.updateCheckpoints(p, rt);
   }
 
   /** Checkpoints/voltas decididos NO SERVIDOR a partir de posições validadas. */
   private updateCheckpoints(p: PlayerState, rt: PlayerRuntime) {
-    const cp = checkpointAt(p.x, p.z);
+    const cp = checkpointAt(p.x, p.z); // -1 = longe da pista (gramado não conta)
     const next = (p.checkpoint + 1) % TRACK.checkpoints;
-    if (cp !== next) return; // fora de ordem (ré, atalho pelo infield) não conta
+    if (cp !== next) return; // fora de ordem (ré, atalho) não conta
 
     p.checkpoint = cp;
     if (cp === 0) {
@@ -230,7 +247,9 @@ export class RaceRoom extends Room<{ state: RaceState }> {
       p.lastLapMs = lapMs;
       if (!p.bestLapMs || lapMs < p.bestLapMs) p.bestLapMs = lapMs;
 
-      if (p.lap >= this.state.totalLaps) {
+      if (this.state.mode === 'timetrial') {
+        p.lap = Math.min(p.lap + 1, 250); // voltas livres até o tempo acabar
+      } else if (p.lap >= this.state.totalLaps) {
         p.finished = true;
         p.finishPos = ++this.finishCount;
         rt.totalTimeMs = t - this.raceStartedAt;
@@ -283,10 +302,11 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     switch (this.state.phase) {
       case 'lobby': {
         // sala privada só larga quando o anfitrião mandar 'start'
+        const wait = this.state.mode === 'timetrial' ? 1500 : LOBBY_WAIT_MS;
         if (
           !this.state.isPrivate &&
           this.clients.length >= NET.minPlayers &&
-          t - this.lobbyStartedAt >= NET.lobbyWaitMs
+          t - this.lobbyStartedAt >= wait
         ) {
           this.beginCountdown();
         }
@@ -306,8 +326,10 @@ export class RaceRoom extends Room<{ state: RaceState }> {
         const timeUp =
           this.state.mode === 'drift'
             ? this.state.raceTimeMs >= NET.driftDurationMs
-            : this.state.raceTimeMs >= NET.maxRaceMs ||
-              (this.firstFinishAt > 0 && t - this.firstFinishAt >= NET.finishTimeoutMs);
+            : this.state.mode === 'timetrial'
+              ? this.state.raceTimeMs >= NET.timetrialDurationMs
+              : this.state.raceTimeMs >= NET.maxRaceMs ||
+                (this.firstFinishAt > 0 && t - this.firstFinishAt >= NET.finishTimeoutMs);
         const allDone =
           this.state.mode === 'circuit' &&
           this.state.players.size > 0 &&
@@ -342,11 +364,17 @@ export class RaceRoom extends Room<{ state: RaceState }> {
       const metric =
         this.state.mode === 'drift'
           ? p.driftScore
-          : rt?.totalTimeMs || this.state.raceTimeMs + 60_000; // DNF: tempo punitivo
+          : this.state.mode === 'timetrial'
+            ? p.bestLapMs || 999_999_999 // sem volta completa = sem tempo
+            : rt?.totalTimeMs || this.state.raceTimeMs + 60_000; // DNF: tempo punitivo
       const coins =
         this.state.mode === 'drift'
           ? Math.floor(p.driftScore / 50)
-          : (p.finished ? CIRCUIT_REWARDS[i] ?? 10 : 5) + TRACK.totalLaps * 10;
+          : this.state.mode === 'timetrial'
+            ? p.bestLapMs
+              ? 60 + Math.max(0, p.lap - 1) * 10
+              : 5
+            : (p.finished ? CIRCUIT_REWARDS[i] ?? 10 : 5) + TRACK.totalLaps * 10;
       return {
         sessionId,
         nick: p.nick,
