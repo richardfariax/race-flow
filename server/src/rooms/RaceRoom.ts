@@ -107,7 +107,12 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     this.patchRate = NET.patchIntervalMs;
     // time trial é sessão solo (ghost é local do cliente)
     if (state.mode === 'timetrial') this.maxClients = 1;
-    this.expectedClass = typeof options.carClass === 'string' ? options.carClass : null;
+    // expectedClass NUNCA vem do options.carClass declarado (matchmaking já
+    // usa isso via filterBy p/ agrupar salas — não precisa repetir aqui, e
+    // repetir é o que causava o bug: se o tuning local do cliente estivesse
+    // desatualizado em relação ao banco, quem criasse a sala se autorejeitava
+    // no onJoin, pois expectedClass e realClass vinham de fontes diferentes).
+    // Só o onJoin (classe RECALCULADA no servidor) define a sala.
     if (state.isPrivate) this.setPrivate(true).catch(() => {});
 
     this.onMessage('state', (client, msg: ClientStateMsg) => this.handleState(client, msg));
