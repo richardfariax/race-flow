@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "NODE_OPTIONS='--max-old-space-size=6656' next build",
+    "build": "next build --turbopack",
     "start": "next start",
     "typecheck": "tsc --noEmit"
   },
