@@ -10,17 +10,27 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@colyseus/sdk": "^0.17.43",
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource/barlow-condensed": "^5.2.8",
     "@react-three/fiber": "^9.6.1",
     "@react-three/rapier": "^2.2.0",
     "@supabase/supabase-js": "^2.110.2",
-    "@colyseus/sdk": "^0.17.43",
+    "@tailwindcss/vite": "^4.3.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.24.0",
+    "radix-ui": "^1.6.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.2",
     "three": "^0.185.1",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@types/three": "^0.185.1",
