@@ -5,12 +5,11 @@ import { NET } from '@shared/protocol';
 import { carOrStarter } from '@shared/cars';
 import { useGameStore } from '../state/gameStore';
 import { remoteBuffers } from '../net/remoteBuffer';
-import { toonMaterial, PALETTE } from './toon';
+import { useCarParts } from './GlbCar';
 
 /**
  * Carros remotos: interpolação com atraso fixo (~120ms) sobre snapshots do
- * servidor. Sem física/colisão carro-a-carro no MVP (decisão declarada:
- * colisão com autoridade dividida geraria disputas injustas).
+ * servidor. Sem física/colisão carro-a-carro no MVP.
  */
 
 const posA = new THREE.Vector3();
@@ -18,9 +17,20 @@ const posB = new THREE.Vector3();
 const quatA = new THREE.Quaternion();
 const quatB = new THREE.Quaternion();
 
-function RemoteCar({ sessionId, carId }: { sessionId: string; carId: string }) {
+function RemoteCar({
+  sessionId,
+  carId,
+  bodyColor,
+}: {
+  sessionId: string;
+  carId: string;
+  bodyColor?: string;
+  accentColor?: string;
+}) {
   const groupRef = useRef<THREE.Group>(null);
   const car = carOrStarter(carId);
+  const parts = useCarParts(car.id, bodyColor || car.colors.body);
+  const hubs = car.geometry.wheelHubs;
 
   useFrame(() => {
     const g = groupRef.current;
@@ -45,30 +55,11 @@ function RemoteCar({ sessionId, carId }: { sessionId: string; carId: string }) {
 
   return (
     <group ref={groupRef}>
-      <mesh castShadow material={toonMaterial(car.colors.body)}>
-        <boxGeometry args={[1.8, 0.55, 3.8]} />
-      </mesh>
-      <mesh castShadow position={[0, 0.42, -0.25]} material={toonMaterial(car.colors.accent)}>
-        <boxGeometry args={[1.35, 0.5, 1.7]} />
-      </mesh>
-      <mesh castShadow position={[0, 0.05, 1.55]} material={toonMaterial(PALETTE.carDark)}>
-        <boxGeometry args={[1.2, 0.28, 0.7]} />
-      </mesh>
-      {[
-        [0.82, 1.25],
-        [-0.82, 1.25],
-        [0.82, -1.25],
-        [-0.82, -1.25],
-      ].map(([x, z], i) => (
-        <mesh
-          key={i}
-          castShadow
-          position={[x, -0.35, z]}
-          rotation={[0, 0, Math.PI / 2]}
-          material={toonMaterial(PALETTE.wheel)}
-        >
-          <cylinderGeometry args={[0.42, 0.42, 0.34, 14]} />
-        </mesh>
+      <primitive object={parts.body} />
+      {hubs.map(([x, z], i) => (
+        <group key={i} position={[x, -0.65, z]}>
+          <primitive object={parts.wheels[i]} />
+        </group>
       ))}
     </group>
   );
@@ -82,7 +73,13 @@ export function RemoteCars() {
       {standings
         .filter((p) => p.sessionId !== myId)
         .map((p) => (
-          <RemoteCar key={p.sessionId} sessionId={p.sessionId} carId={p.carId} />
+          <RemoteCar
+            key={p.sessionId}
+            sessionId={p.sessionId}
+            carId={p.carId}
+            bodyColor={p.bodyColor}
+            accentColor={p.accentColor}
+          />
         ))}
     </>
   );
