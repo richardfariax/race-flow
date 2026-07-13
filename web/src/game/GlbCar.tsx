@@ -366,9 +366,3 @@ export function preloadCar(carId: string): void {
 export function preloadCarModels(selectedId?: string): void {
   preloadCar(selectedId && CAR_VISUALS[selectedId] ? selectedId : 'golf_gti');
 }
-
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    preparedCache.clear();
-  });
-}
