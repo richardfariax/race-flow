@@ -3,7 +3,7 @@
 import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 
-const GaragePage = dynamic(() => import('@/pages/GaragePage').then((m) => m.GaragePage), {
+const GaragePage = dynamic(() => import('@/screens/GaragePage').then((m) => m.GaragePage), {
   ssr: false,
 });
 
