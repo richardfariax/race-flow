@@ -18,8 +18,13 @@ export const NET = {
   /** tempo extra após o 1º terminar (circuit) */
   finishTimeoutMs: 30_000,
   maxRaceMs: 360_000,
-  /** margem sobre a vel. máxima do carro na validação anti-teleporte */
-  speedValidationMargin: 1.6,
+  /**
+   * margem sobre a vel. máxima do carro na validação anti-teleporte. Folgada
+   * de propósito: o cálculo só considera a vel. máx horizontal do carro, mas
+   * o deslocamento real inclui relevo/rampas da pista (queda em salto soma
+   * distância vertical que a fórmula não prevê).
+   */
+  speedValidationMargin: 2.2,
   /**
    * teto de dt (s) usado no cálculo de distância máxima plausível entre dois
    * 'state' consecutivos. Precisa ser folgado: hiccups de rede e throttling
@@ -29,6 +34,15 @@ export const NET = {
    * (o servidor teleporta o carro de volta — sensação de "bater em algo").
    */
   maxStateDeltaS: 2,
+  /**
+   * nº de violações CONSECUTIVAS do anti-teleporte antes de corrigir de fato
+   * (teleportar o carro de volta no cliente). Uma violação isolada é ignorada
+   * silenciosamente — sem isso, um único sample ruidoso (jitter de rede,
+   * hiccup de física) já disparava a correção, travando o carro e soando
+   * como se tivesse batido em algo. Cheat sustentado ainda é pego: 3 samples
+   * a 20Hz é ~150ms.
+   */
+  teleportStrikeLimit: 3,
 } as const;
 
 /** cliente → servidor: 'state' */

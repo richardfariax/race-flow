@@ -424,6 +424,10 @@ export function Vehicle({
       chassis.setRotation({ x: c.qx, y: c.qy, z: c.qz, w: c.qw }, true);
       chassis.setLinvel({ x: 0, y: 0, z: 0 }, true);
       chassis.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      // resync de rede, não colisão real — sem isso o próximo cálculo de dv
+      // (mais abaixo, no mesmo frame) vê a velocidade cair a zero de repente
+      // e dispara o som/heurística de colisão por engano.
+      prevSpeedRef.current = 0;
     }
 
     const state = input.read();

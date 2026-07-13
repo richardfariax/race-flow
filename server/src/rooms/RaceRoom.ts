@@ -63,7 +63,10 @@ interface PlayerRuntime {
   /** timestamp da última posição aceita (lastValid) — base do dt anti-teleporte */
   lastValidAt: number;
   lastValid: { x: number; y: number; z: number; qx: number; qy: number; qz: number; qw: number };
+  /** total histórico (métrica/telemetria) */
   violations: number;
+  /** violações consecutivas — zera a cada sample aceito; ver NET.teleportStrikeLimit */
+  violationStreak: number;
   lapStartMs: number;
   totalTimeMs: number;
   slot: number;
@@ -171,6 +174,7 @@ export class RaceRoom extends Room<{ state: RaceState }> {
       lastValidAt: now(),
       lastValid: { x: p.x, y: p.y, z: p.z, qx: 0, qy: p.qy, qz: 0, qw: p.qw },
       violations: 0,
+      violationStreak: 0,
       lapStartMs: 0,
       totalTimeMs: 0,
       slot: slotIndex,
@@ -218,10 +222,16 @@ export class RaceRoom extends Room<{ state: RaceState }> {
 
     if (dist > maxDist) {
       rt.violations++;
-      client.send('correction', rt.lastValid);
+      rt.violationStreak++;
+      // 1-2 violações isoladas = ruído (jitter/hiccup) — ignora sem penalizar;
+      // só corrige (teleporta o cliente de volta) se persistir.
+      if (rt.violationStreak >= NET.teleportStrikeLimit) {
+        client.send('correction', rt.lastValid);
+      }
       return;
     }
 
+    rt.violationStreak = 0;
     rt.lastValidAt = t;
     rt.lastValid = { x: msg.x, y: msg.y, z: msg.z, qx: msg.qx, qy: msg.qy, qz: msg.qz, qw: msg.qw };
     p.x = msg.x;
