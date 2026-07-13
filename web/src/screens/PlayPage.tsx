@@ -97,7 +97,10 @@ export function PlayPage() {
       nick,
       carId: car.id,
       token,
-      carClass: matchClass(car, tuning),
+      // convidado não tem tuning no servidor (RaceRoom.onJoin) — declarar a
+      // classe com o tuning local geraria "classe inválida" sempre que o
+      // tuning local mudasse a faixa de performance.
+      carClass: matchClass(car, isGuest ? undefined : tuning),
       mode: roomCode ? undefined : (modeParam as GameMode),
       createPrivate,
       roomCode: roomCode ?? undefined,
