@@ -9,16 +9,14 @@ import type { DrivetrainSpec } from './drivetrain';
 export type CarClass = 'C' | 'B' | 'A';
 
 export interface CarPhysics {
-  /** Massa do veículo (kg) — escala realista p/ Rapier */
   mass: number;
-  /** Força de ré (N) — marcha à ré curta */
+  /** marcha à ré curta */
   reverseForce: number;
   /**
    * Impulso máx de freio por roda no Rapier (pedal cheio).
    * Escala ~massa×0.05 — NÃO é Newton; calibrado na simulação.
    */
   brakeForce: number;
-  /** Freio de mão (impulso por roda traseira) */
   handbrakeForce: number;
   /** grip lateral traseiro com freio de mão (menor = solta mais a traseira) */
   handbrakeSideFriction: number;
@@ -41,7 +39,6 @@ export interface CarPhysics {
   drivetrain: DrivetrainSpec;
 }
 
-/** Geometria do chassi/rodas no espaço do jogo (metros). */
 export interface CarGeometry {
   chassisHalf: { x: number; y: number; z: number };
   wheelRadius: number;
@@ -55,9 +52,7 @@ export interface CarSpec {
   year: number;
   cls: CarClass;
   priceCoins: number;
-  /** potência de pico (cv) — UI / feeling */
   powerCv: number;
-  /** 0–100 km/h de referência (s) */
   zeroToHundredSec: number;
   /** teto plausível p/ validação anti-cheat no servidor */
   maxSpeedKmh: number;
@@ -66,10 +61,7 @@ export interface CarSpec {
   geometry: CarGeometry;
 }
 
-/**
- * Catálogo: Fusca lento → M4 explosivo.
- * Forças saem do torque × marcha × diferencial / raio (shared/drivetrain).
- */
+/** Forças saem do torque × marcha × diferencial / raio (shared/drivetrain). */
 export const CARS: Record<string, CarSpec> = {
   beetle: {
     id: 'beetle',

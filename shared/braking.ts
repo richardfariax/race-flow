@@ -11,11 +11,10 @@
 
 export interface ServiceBrakeInput {
   pedal: number;
-  /** impulso máx por roda a pedal cheio (spec do carro) */
   maxPerWheel: number;
   massKg: number;
   frontBias: number;
-  /** velocidade longitudinal absoluta (m/s) — reforço em baixa */
+  /** usado no reforço de freio em baixa velocidade */
   absSpeedMs?: number;
 }
 
@@ -43,10 +42,6 @@ function lowSpeedBrakeBoost(absSpeedMs: number): number {
   return 1 + 0.8 * (1 - t);
 }
 
-/**
- * Freio de serviço (pedal S / W na ré).
- * Força plena + ganho global; reforço extra quando o carro está lento.
- */
 export function rapierServiceBrakes(input: ServiceBrakeInput): BrakeWheels {
   const pedal = clamp(input.pedal, 0, 1);
   if (pedal < 0.02) return { front: 0, rear: 0 };

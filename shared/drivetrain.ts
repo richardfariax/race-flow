@@ -148,7 +148,6 @@ export function stepDrivetrain(opts: {
     if (st.shiftTimer <= 0) st.shifting = false;
   }
 
-  // Parado sem gás: 1ª engatada, motor no idle
   if (absSpeed < 0.25 && throttle < 0.04) {
     st.gearIndex = 0;
     st.engineRpm = lerp(st.engineRpm, dt.idleRpm, dtSec * 8);
@@ -166,7 +165,6 @@ export function stepDrivetrain(opts: {
 
   const ratio = dt.gearRatios[st.gearIndex] ?? dt.gearRatios[0];
 
-  // Trocas automáticas (baseadas em velocidade ↔ rpm da marcha)
   if (!st.shifting && st.shiftCooldown <= 0 && throttle > 0.12 && absSpeed >= 4) {
     const upSpd = upshiftSpeedMs(dt, st.gearIndex, wheelRadius);
     const coupledForShift = engineRpmFromSpeed(speedMs, wheelRadius, ratio, dt.finalDrive);
@@ -264,7 +262,6 @@ export function stepDrivetrain(opts: {
   };
 }
 
-/** RPM estimado em ré (relação fixa curta). */
 export function reverseRpmFromSpeed(
   speedMs: number,
   wheelRadius: number,
@@ -273,7 +270,6 @@ export function reverseRpmFromSpeed(
   return engineRpmFromSpeed(speedMs, wheelRadius, 3.2, finalDrive);
 }
 
-/** Arrasto aerodinâmico + rolamento. */
 export function speedDragForce(speedMs: number, mass: number, dragCoeff: number): number {
   const v = Math.abs(speedMs);
   const rolling = mass * 0.015 * 9.81;

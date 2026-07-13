@@ -14,23 +14,17 @@ export type VehicleDriveMode = 'accel' | 'brake' | 'reverse' | 'coast';
 export const BRAKE_STOP_SPEED_MS = 0.14;
 
 export interface VehicleDriveInput {
-  /** -1 (S) .. 1 (W) */
   throttle: number;
-  /** Velocidade longitudinal do Rapier (+ frente, − ré) */
+  /** velocidade longitudinal Rapier (+ frente, − ré) */
   speedMs: number;
-  /** Força máxima de ré (escala Rapier, negativa quando aplicada) */
   reverseForce: number;
 }
 
 export interface VehicleDriveIntent {
-  /** Pedal de serviço 0..1 (hidráulico, mesma intensidade em ambos os sentidos) */
   brakePedal: number;
-  /**
-   * Força nas rodas via motor/câmbio (escala Rapier).
-   * Positivo = avança, negativo = ré. Zero quando freando ou em coast.
-   */
+  /** Positivo = avança, negativo = ré. Zero quando freando ou em coast. */
   wheelForce: number;
-  /** Aceleração à frente para o simulador de câmbio (0..1) */
+  /** 0..1 — entrada do simulador de câmbio */
   forwardThrottle: number;
   /** -1 = ré, 0 = indefinido (coast/freio), 1..N preenchido pelo drivetrain */
   gear: number;

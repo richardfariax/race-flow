@@ -16,7 +16,6 @@ export function GhostCar() {
   const [ghost, setGhost] = useState<GhostData | null>(() => loadGhost());
   const versionRef = useRef(ghostRecorder.version);
 
-  // recarrega quando uma volta melhor é salva
   useEffect(() => {
     const id = window.setInterval(() => {
       if (ghostRecorder.version !== versionRef.current) {
@@ -42,7 +41,7 @@ export function GhostCar() {
     g.visible = true;
 
     const s = ghost.samples;
-    // busca linear leve (samples ~ a cada 80ms)
+    // samples ~ a cada 80ms
     let i = 1;
     while (i < s.length && s[i].t < elapsed) i++;
     const b = s[Math.min(i, s.length - 1)];
@@ -54,7 +53,7 @@ export function GhostCar() {
       GHOST_Y,
       a.z + (b.z - a.z) * alpha,
     );
-    // interpola só yaw (qy,qw)
+    // só yaw (qy, qw) — ghost não inclina
     const qy = a.qy + (b.qy - a.qy) * alpha;
     const qw = a.qw + (b.qw - a.qw) * alpha;
     const len = Math.hypot(qy, qw) || 1;

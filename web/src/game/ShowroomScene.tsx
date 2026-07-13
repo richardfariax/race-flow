@@ -90,7 +90,7 @@ function ShowroomDriver({ carId, bodyColor }: { carId: string; bodyColor: string
 
   const car = carOrStarter(carId);
   const { body, wheels } = useCarParts(carId, bodyColor);
-  // Body/rodas usam STATIC_WHEEL_Y; sobe o grupo p/ o pneu tocar o asfalto (Y=0).
+  // STATIC_WHEEL_Y: sobe o grupo p/ o pneu tocar o asfalto (Y=0)
   const liftY = car.geometry.wheelRadius - STATIC_WHEEL_Y;
 
   useLayoutEffect(() => {

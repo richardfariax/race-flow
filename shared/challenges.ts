@@ -9,7 +9,6 @@ export interface DailyChallenge {
   title: string;
   desc: string;
   reward: number;
-  /** progresso calculável dos race_results de hoje */
   progress: (rows: { mode: string; position: number; metric: number }[]) => number;
   goal: number;
 }

@@ -131,7 +131,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from('owned_cars').select('car_id, tuning').eq('profile_id', uid),
     ]);
     if (prof) setProfile(prof as Profile);
-    // Todos liberados: une posse do banco com o catálogo local
     const fromDb = owned?.map((o) => o.car_id as string) ?? [];
     setOwnedCarIds([...new Set([...ALL_CAR_IDS, ...fromDb])]);
     const local = readLocalTunings();
@@ -179,7 +178,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const buyCar = useCallback(async (_carId: string) => {
-    // Catálogo free — nada a comprar
     return null;
   }, []);
 
@@ -190,7 +188,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const cat = category as (typeof TUNE_CATEGORIES)[number];
 
-      // Preferência: RPC no banco quando logado
       if (supabase && session) {
         const { error } = await supabase.rpc('upgrade_car', {
           p_car_id: carId,

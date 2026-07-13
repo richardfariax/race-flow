@@ -2,16 +2,10 @@ import { useLayoutEffect, useMemo, useRef, type RefObject } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 
-/**
- * Pipeline de render equilibrado: ACES + sombras suaves + IBL outdoor +
- * sol que segue o carro. Sem pós-processamento extra — leve e sem estouro.
- */
-
 export const sunWorldPos = new THREE.Vector3();
 const sunTarget = new THREE.Vector3();
 const sunDir = new THREE.Vector3();
 
-/** Configura o renderer (tone mapping, sombras, color space). */
 export function RenderPipeline() {
   const gl = useThree((s) => s.gl);
 
@@ -27,7 +21,6 @@ export function RenderPipeline() {
   return null;
 }
 
-/** IBL outdoor — reflexos PBR sem brilho exagerado. */
 export function OutdoorIBL() {
   const { gl, scene } = useThree();
 
@@ -92,7 +85,6 @@ interface FollowSunProps {
   targetRef: RefObject<THREE.Group | null>;
 }
 
-/** Sol direcional com sombra suave — acompanha o carro. */
 export function FollowSun({ targetRef }: FollowSunProps) {
   const lightRef = useRef<THREE.DirectionalLight>(null);
 
@@ -130,7 +122,6 @@ export function FollowSun({ targetRef }: FollowSunProps) {
   );
 }
 
-/** Sombra de contato leve sob o carro (1 draw call, sem pós-processamento). */
 export function ContactShadow({ targetRef }: FollowSunProps) {
   const ref = useRef<THREE.Mesh>(null);
   const tex = useMemo(() => {
@@ -166,7 +157,6 @@ export function ContactShadow({ targetRef }: FollowSunProps) {
   );
 }
 
-/** Preenchimento equilibrado — claridade sem lavar a cena. */
 export function FillLights() {
   return (
     <>

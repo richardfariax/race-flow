@@ -3,19 +3,12 @@ import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { localCar } from '../net/localCar';
 
-/**
- * Câmera de perseguição com free-look no mouse (estilo corrida):
- * mexer o mouse olha ao redor; ao parar, volta sozinha para trás do carro.
- * Zoom por velocidade é sutil e amortecido.
- */
-
 const OFFSET_BACK = 8.5;
 const OFFSET_UP = 3.4;
 const LOOK_AHEAD = 3;
 const FOLLOW_DAMPING = 11;
 const BASE_FOV = 52;
 
-/** Extra de distância / FOV no topo de velocidade — bem contido. */
 const SPEED_DIST_MAX = 1.1;
 const SPEED_FOV_MAX = 2.5;
 const SPEED_REF_MS = 42;
@@ -101,7 +94,6 @@ export function FollowCamera({ targetRef }: { targetRef: RefObject<THREE.Group |
 
     const dtClamped = Math.min(dt, 0.05);
 
-    // Ao parar de mexer o mouse, volta ao enquadramento padrão
     if (idleTimer.current >= LOOK_IDLE_RETURN) {
       const rt = 1 - Math.exp(-LOOK_RETURN_DAMPING * dtClamped);
       lookYaw.current = THREE.MathUtils.lerp(lookYaw.current, 0, rt);

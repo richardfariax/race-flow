@@ -19,17 +19,15 @@ export type EngineCarId =
   | 'm4_g82';
 
 interface EngineVoice {
-  /** cilindros (define frequência de ignição: rpm * cyl / 120) */
+  /** define frequência de ignição: rpm * cyl / 120 */
   cylinders: number;
-  /** volume geral do motor */
   gain: number;
-  /** gravidade do timbre (0 = agudo esportivo, 1 = grave/ronco) */
+  /** 0 = agudo esportivo, 1 = grave/ronco */
   darkness: number;
-  /** aspereza / rasp do escape (0..1) */
   rasp: number;
-  /** assobio de turbo (0 = aspirado) */
+  /** 0 = aspirado */
   turbo: number;
-  /** ênfase no “putt” irregular (flat-4 / idle choppy) */
+  /** flat-4 / idle choppy */
   chop: number;
 }
 
@@ -58,7 +56,6 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
-/** Buffer de ruído branco loopável (escape / combustão). */
 function makeNoiseBuffer(ctx: AudioContext, seconds = 2): AudioBuffer {
   const len = Math.floor(ctx.sampleRate * seconds);
   const buf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -171,7 +168,6 @@ class CarAudio {
     this.bodyFilter.Q.value = 0.7;
     this.engineOut.connect(this.bodyFilter).connect(this.master);
 
-    // Ronco grave (ciclo do virabrequim)
     this.rumbleOsc = ctx.createOscillator();
     this.rumbleOsc.type = 'sawtooth';
     this.rumbleGain = ctx.createGain();
@@ -182,7 +178,7 @@ class CarAudio {
     this.rumbleOsc.connect(rumbleLp).connect(this.rumbleGain).connect(this.engineOut);
     this.rumbleOsc.start();
 
-    // Pulso de ignição (freq = rpm * cyl / 120)
+    // freq = rpm * cyl / 120
     this.fireOsc = ctx.createOscillator();
     this.fireOsc.type = 'square';
     this.fireGain = ctx.createGain();
@@ -194,7 +190,6 @@ class CarAudio {
     this.fireOsc.connect(fireBp).connect(this.fireGain).connect(this.engineOut);
     this.fireOsc.start();
 
-    // Harmônico 2× (clareza / “cantar” em alta)
     this.harmOsc = ctx.createOscillator();
     this.harmOsc.type = 'triangle';
     this.harmGain = ctx.createGain();
@@ -202,7 +197,7 @@ class CarAudio {
     this.harmOsc.connect(this.harmGain).connect(this.engineOut);
     this.harmOsc.start();
 
-    // Meia ordem / chop (flat-4, idle irregular)
+    // flat-4 / idle irregular
     this.chopOsc = ctx.createOscillator();
     this.chopOsc.type = 'sawtooth';
     this.chopGain = ctx.createGain();
@@ -213,7 +208,6 @@ class CarAudio {
     this.chopOsc.connect(chopLp).connect(this.chopGain).connect(this.engineOut);
     this.chopOsc.start();
 
-    // Escape: ruído filtrado (acompanha RPM no centro da banda)
     this.exhaustSrc = ctx.createBufferSource();
     this.exhaustSrc.buffer = this.noiseBuf;
     this.exhaustSrc.loop = true;
@@ -226,7 +220,6 @@ class CarAudio {
     this.exhaustSrc.connect(this.exhaustFilter).connect(this.exhaustGain).connect(this.engineOut);
     this.exhaustSrc.start();
 
-    // Turbo (assobio)
     this.turboOsc = ctx.createOscillator();
     this.turboOsc.type = 'sine';
     this.turboFilter = ctx.createBiquadFilter();
@@ -253,7 +246,7 @@ class CarAudio {
     this.skidSrc.start();
   }
 
-  /** Chiado contínuo de pastilha/disco (ruído filtrado — sem bip de sample). */
+  /** sem bip de sample — ruído filtrado */
   private startBrake(): void {
     if (this.brakeStarted || !this.ctx || !this.master || !this.noiseBuf) return;
     this.brakeStarted = true;
@@ -273,14 +266,6 @@ class CarAudio {
     this.brakeSrc.start();
   }
 
-  /**
-   * Atualiza o motor a cada frame com RPM absoluto.
-   * @param rpm      rotação atual (ex.: 800..8000)
-   * @param throttle 0..1
-   * @param slip     0..1
-   * @param shifting true durante troca de marcha (afunda o motor um instante)
-   * @param brake    0..1 intensidade de freio × velocidade (pastilha)
-   */
   update(rpm: number, throttle: number, slip: number, shifting = false, brake = 0): void {
     if (!this.ctx) return;
     if (!this.engineStarted) this.startEngineGraph();
@@ -307,10 +292,8 @@ class CarAudio {
     const rpmNorm = clamp((r - 800) / 7000, 0, 1);
     const load = thr * 0.75 + rpmNorm * 0.25;
     const shiftDuck = shifting ? 0.45 : 1;
-    // 1 = parado na lenta (sem gás, giro baixo); 0 = fora da lenta
     const idle = clamp(1 - thr * 3.2, 0, 1) * clamp(1 - (r - 900) / 1100, 0, 1);
 
-    // Volumes por camada (na lenta: menos square/chop, mais ronco macio)
     const dark = v.darkness;
     this.rumbleGain?.gain.setTargetAtTime(
       (0.12 + 0.22 * load + idle * 0.1) * (0.45 + dark) * shiftDuck,
@@ -333,7 +316,6 @@ class CarAudio {
       0.06,
     );
 
-    // Escape: na lenta fica baixo e fechado (ronronar, sem “sss”)
     if (this.exhaustFilter && this.exhaustGain) {
       const center = 280 + rpmNorm * 900 + thr * 400 + (1 - dark) * 200 - idle * 120;
       this.exhaustFilter.frequency.setTargetAtTime(center, now, 0.05);
@@ -345,13 +327,11 @@ class CarAudio {
       );
     }
 
-    // Corpo: na lenta mais fechado (grave quente)
     if (this.bodyFilter) {
       const cutoff = 600 + rpmNorm * 2800 + thr * 1200 - dark * 400 - idle * 280;
       this.bodyFilter.frequency.setTargetAtTime(clamp(cutoff, 320, 5500), now, 0.06);
     }
 
-    // Turbo: sobe com carga, some em idle
     if (this.turboOsc && this.turboGain && this.turboFilter) {
       const boost = v.turbo * thr * clamp((rpmNorm - 0.15) / 0.5, 0, 1);
       const whistle = 1800 + rpmNorm * 2200 + thr * 800;
@@ -370,7 +350,6 @@ class CarAudio {
       this.skidGain.gain.setTargetAtTime(slip > 0.15 ? Math.min(0.85, slip) : 0.0001, now, 0.04);
     }
 
-    // Freio: chiado contínuo de pastilha (sobe com pedal×velocidade; some no skid forte)
     if (this.brakeGain && this.brakeFilter) {
       const b = clamp(brake, 0, 1);
       const pad = b * (1 - clamp(slip * 1.4, 0, 0.85));

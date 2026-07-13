@@ -145,7 +145,6 @@ export function Particles() {
     p.geom.attributes.aSize.needsUpdate = true;
   });
 
-  // material de shader (memo para não recriar)
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({

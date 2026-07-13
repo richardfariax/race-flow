@@ -18,13 +18,11 @@ export interface JoinRequest {
   token?: string;
   /** classe declarada (o servidor recalcula do banco e expulsa se divergir) */
   carClass: string;
-  /** modo (ignorado ao entrar por código — a sala já tem modo) */
+  /** ignorado ao entrar por código — a sala já tem modo */
   mode?: GameMode;
-  /** cria sala privada (fora do matchmaking) */
   createPrivate?: boolean;
-  /** entra numa sala existente pelo código (roomId) */
   roomCode?: string;
-  /** cosméticos (hex #rrggbb; o servidor revalida) */
+  /** hex #rrggbb; o servidor revalida */
   bodyColor?: string;
   accentColor?: string;
 }

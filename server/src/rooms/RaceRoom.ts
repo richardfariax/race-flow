@@ -104,20 +104,18 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     state.isPrivate = options.private === true;
     this.setState(state);
     this.patchRate = NET.patchIntervalMs;
-    // time trial é sessão solo (contra o relógio; ghost é local do cliente)
+    // time trial é sessão solo (ghost é local do cliente)
     if (state.mode === 'timetrial') this.maxClients = 1;
     this.expectedClass = typeof options.carClass === 'string' ? options.carClass : null;
     if (state.isPrivate) this.setPrivate(true).catch(() => {});
 
     this.onMessage('state', (client, msg: ClientStateMsg) => this.handleState(client, msg));
     this.onMessage('start', (client) => {
-      // largada manual: só anfitrião de sala privada, no lobby
       if (this.state.isPrivate && this.state.phase === 'lobby' && client.sessionId === this.state.hostId) {
         this.beginCountdown();
       }
     });
     this.onMessage('finishTT', () => {
-      // time trial: encerra cedo e salva a melhor volta
       if (this.state.mode === 'timetrial' && this.state.phase === 'racing') this.finishRace();
     });
     this.setSimulationInterval((dt) => this.tick(dt), NET.patchIntervalMs);
@@ -189,8 +187,6 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     this.lock().catch(() => {});
   }
 
-  // ---------- estado do cliente + validação de sanidade ----------
-
   private handleState(client: Client, msg: ClientStateMsg) {
     const p = this.state.players.get(client.sessionId);
     const rt = this.runtime.get(client.sessionId);
@@ -240,7 +236,6 @@ export class RaceRoom extends Room<{ state: RaceState }> {
 
     p.checkpoint = cp;
     if (cp === 0) {
-      // cruzou a linha completando a volta
       const t = now();
       const lapMs = t - rt.lapStartMs;
       rt.lapStartMs = t;
@@ -294,8 +289,6 @@ export class RaceRoom extends Room<{ state: RaceState }> {
       p.driftCombo = 0;
     }
   }
-
-  // ---------- máquina de fases ----------
 
   private tick(_dt: number) {
     const t = now();
@@ -388,7 +381,6 @@ export class RaceRoom extends Room<{ state: RaceState }> {
 
     this.broadcast('results', { mode: this.state.mode, track: TRACK.id, entries });
 
-    // persistência (só jogadores autenticados; validação já aconteceu acima)
     for (const e of entries) {
       const rt = this.runtime.get(e.sessionId);
       if (rt?.profileId) {

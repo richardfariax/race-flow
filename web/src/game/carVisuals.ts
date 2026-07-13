@@ -20,13 +20,11 @@ export interface CarVisualConfig {
   /** multiplica o modelo para comprimento real (~metros) */
   scale: number;
   /**
-   * Centros dos hubs no espaço do modelo JÁ escalado (Y incluso).
+   * Hubs no espaço do modelo JÁ escalado (Y incluso).
    * Índices: 0 FL, 1 FR, 2 RL, 3 RR.
    */
   hubs: ReadonlyArray<readonly [number, number, number]>;
-  /** regex extra de nomes de mesh/material de roda */
   wheelNameRe: RegExp;
-  /** materiais de pintura recoloríveis */
   paintNameRe: RegExp;
 }
 

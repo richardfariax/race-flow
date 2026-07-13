@@ -77,7 +77,6 @@ function ribbonGeometry(
   return geo;
 }
 
-/** Saia de grama: do fim do cascalho (altura do asfalto) → gramado y=0. */
 function skirtGeometry(side: 1 | -1): THREE.BufferGeometry {
   const n = SAMPLES.length;
   const inner = side * (RUNOFF_OUT - OLAP);
@@ -215,7 +214,6 @@ function wallRibbonGeometry(side: 1 | -1): THREE.BufferGeometry {
   return geo;
 }
 
-/** Faixa decorativa no topo do muro (vermelho/branco). */
 function wallCapGeometry(side: 1 | -1): THREE.BufferGeometry {
   const n = SAMPLES.length;
   const inner = side * (WALL_IN + 0.04);
@@ -290,7 +288,6 @@ interface Prop {
   rot: number;
 }
 
-/** Arquibancadas perto da pista (floresta vem do Environment). */
 function useGrandstands(): Prop[] {
   return useMemo(() => {
     const props: Prop[] = [];
@@ -408,7 +405,6 @@ export function Track() {
     return m;
   }, []);
 
-  /** Plano de grama com leve variação de cor por vértice (manchas orgânicas). */
   const grassPlane = useMemo(() => {
     const geo = new THREE.PlaneGeometry(1040, 1040, 64, 64);
     const colors = new Float32Array(geo.attributes.position.count * 3);

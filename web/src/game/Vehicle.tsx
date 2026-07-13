@@ -169,7 +169,6 @@ function maxDriftSlipAtSpeed(
   return speedSlip * highSpeedDamp(absSpeedMs);
 }
 
-/** Atualiza ângulo-alvo do drift com suavização */
 function smoothDriftAngle(
   current: number,
   slipAngle: number,
@@ -183,7 +182,6 @@ function smoothDriftAngle(
   return current + (target - current) * blend;
 }
 
-/** Impulso lateral + na direção da velocidade (deslize real) */
 function applySlideMomentum(
   chassis: RapierRigidBody,
   mass: number,
@@ -251,7 +249,7 @@ export function Vehicle({
   const controllerRef = useRef<DynamicRayCastVehicleController | null>(null);
   const inputRef = useRef<InputSource | null>(null);
   const steerRef = useRef(0);
-  /** Input A/D suavizado (−1..1) — teclado binário vira rampa contínua */
+  /** teclado binário → rampa contínua */
   const steerInputRef = useRef(0);
   const flipTimerRef = useRef(0);
   const slipRef = useRef(0);
@@ -266,15 +264,12 @@ export function Vehicle({
   const shiftingRef = useRef(false);
   const brakePedalRef = useRef(0);
   const handbrakePedalRef = useRef(0);
-  /** 0..1 — roda traseira travada (fumaça / áudio) */
   const handbrakeLockRef = useRef(0);
-  /** 0..1 — drift residual após soltar o freio de mão */
+  /** drift residual após soltar o freio de mão */
   const driftHoldRef = useRef(0);
-  /** ângulo lateral memorizado (rad, com sinal) — alvo do powerslide */
+  /** ângulo lateral memorizado (com sinal) — alvo do powerslide */
   const driftAngleRef = useRef(0);
-  /** velocidade lateral memorizada ao iniciar o deslize (m/s) */
   const slideMomentumRef = useRef(0);
-  /** ângulo visual das rodas traseiras ao travar */
   const rearLockSpinRef = useRef<[number, number]>([0, 0]);
   const driveModeRef = useRef<VehicleDriveMode>('coast');
   const { world } = useRapier();
@@ -523,13 +518,11 @@ export function Vehicle({
       shiftingRef.current = coast.output.shifting;
     }
 
-    // Freio-motor leve sem pedal
     let engineBrakePedal = 0;
     if (!braking && throttle === 0 && absSpeed > 4 && gearRef.current > 0) {
       engineBrakePedal = BASE.engineBrakeFactor * Math.min(1, absSpeed / 25);
     }
 
-    // Teto de segurança perto da vmax
     if (engine > 0 && maxSpeedMs > 1) {
       const ratio = THREE.MathUtils.clamp(speed / maxSpeedMs, 0, 1.15);
       if (ratio > 0.92) {
@@ -552,7 +545,6 @@ export function Vehicle({
     fwd.set(0, 0, 1).applyQuaternion(tmpQuat);
     right.set(1, 0, 0).applyQuaternion(tmpQuat);
 
-    // Arrasto aero + rolamento
     const drag = speedDragForce(speed, phys.mass, phys.dragCoeff);
     if (absSpeed > 0.12) {
       const dragImpulse = drag * dt;
@@ -567,7 +559,6 @@ export function Vehicle({
       );
     }
 
-    // Últimos m/s: freio de serviço — evita “deslizar” até a ré.
     // Freio de mão NÃO entra aqui em velocidade: mataria o fluxo e forçava 180°.
     if (braking && absSpeed > 0.04 && absSpeed < BASE.creepBrakeMaxSpeed) {
       const assist = phys.mass * absSpeed * BASE.creepBrakeGain * dt * brakePedal;
@@ -580,7 +571,6 @@ export function Vehicle({
 
     const noseUp = Math.max(0, -fwd.y);
 
-    // Anti-empino na aceleração
     if (engine > 0 && noseUp > BASE.antiWheeliePitch) {
       const cut = THREE.MathUtils.clamp(
         1 - (noseUp - BASE.antiWheeliePitch) * 8,
@@ -608,7 +598,6 @@ export function Vehicle({
       }
     }
 
-    // Freio de serviço (S) nas 4 rodas; freio de mão (Espaço) só traseira
     const brakeInput = Math.min(1, brakePedal + engineBrakePedal);
     const roadPedal = onRoad ? brakeInput : brakeInput * BASE.offRoadBrakeFactor;
     let { front: frontBrake, rear: rearBrake } = rapierServiceBrakes({
@@ -636,7 +625,6 @@ export function Vehicle({
       frontBrake *= cut;
     }
 
-    // Freio de mão: trava traseira + drift controlado pela direção da dianteira
     const hbTarget = handbrake && driveAllowed ? 1 : 0;
     const hbRate =
       (hbTarget > handbrakePedalRef.current ? BASE.handbrakePedalRate : BASE.handbrakeReleaseRate) *
@@ -731,7 +719,6 @@ export function Vehicle({
     const av = chassis.angvel();
     const pitchRate = right.dot(tmpVec.set(av.x, av.y, av.z));
 
-    // Anti-dive leve na freada
     if (driveAllowed && serviceBraking && brakePedal > 0.05) {
       const noseDown = THREE.MathUtils.clamp(fwd.y, 0, 0.08);
       const pitchImp =
@@ -746,7 +733,6 @@ export function Vehicle({
       }
     }
 
-    // Anti-empino só na aceleração
     if (driveAllowed && !serviceBraking && throttle > 0.15 && pitchRate < -0.05) {
       const pitchCorrect = -pitchRate * phys.mass * BASE.pitchDampGain;
       chassis.applyTorqueImpulse(
@@ -772,7 +758,6 @@ export function Vehicle({
       );
     }
 
-    // Drift unificado: entrada → powerslide (gás + lado) → estabilização
     if (driveAllowed && absSpeed > 4) {
       const steerNorm = clamp(steerRef.current / Math.max(0.08, phys.maxSteerRad), -1, 1);
       const steerAuth = driftSteerAuthority(steerNorm, BASE.driftSteerAuthority);
@@ -984,7 +969,6 @@ export function Vehicle({
     const launchSmoke = slipRef.current > 0.18 && absSpeed < BASE.launchSlipMaxSpeed;
     const hbLock = handbrakeLockRef.current;
     const driftHold = driftHoldRef.current;
-    // Freio de mão: lock + fumaça; depois hold continua cantando mais leve
     const lockSmoke = hbLock > 0.25 && absSpeed > 3;
     const holdSmoke = driftHold > 0.18 && absSpeed > 5 && lateralSlipRef.current > 0.12;
     const driftSmoke = lateralSlipRef.current > 0.28 && absSpeed > 6;

@@ -4,7 +4,6 @@ export type GameMode = 'circuit' | 'drift' | 'timetrial';
 export type RacePhase = 'lobby' | 'countdown' | 'racing' | 'finished';
 
 export const NET = {
-  /** Hz de envio de estado do cliente e de patch do servidor */
   stateSendHz: 20,
   patchIntervalMs: 50,
   /** atraso de interpolação dos carros remotos */
@@ -15,11 +14,9 @@ export const NET = {
   lobbyWaitMs: 5000,
   countdownMs: 3000,
   driftDurationMs: 120_000,
-  /** time trial: sessão solo, vale a melhor volta */
   timetrialDurationMs: 300_000,
   /** tempo extra após o 1º terminar (circuit) */
   finishTimeoutMs: 30_000,
-  /** teto duro da corrida */
   maxRaceMs: 360_000,
   /** margem sobre a vel. máxima do carro na validação anti-teleporte */
   speedValidationMargin: 1.6,

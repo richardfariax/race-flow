@@ -4,7 +4,6 @@
  */
 
 export interface InputState {
-  /** -1 (ré) .. 1 (acelerar) */
   throttle: number;
   /** -1 (direita) .. 1 (esquerda) — convenção de yaw positivo */
   steer: number;

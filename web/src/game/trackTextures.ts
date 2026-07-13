@@ -124,18 +124,15 @@ function makeGrass(): { map: THREE.CanvasTexture; normal: THREE.CanvasTexture } 
       const patch = fbm(x * 0.012, y * 0.012);
       const moss = fbm(x * 0.08 + 100, y * 0.08);
 
-      // manchas claras/escuras bem visíveis
       let r = 38 + n * 35 + n2 * 18;
       let g = 95 + n * 85 + n2 * 40 + (blade > 0.55 ? 28 : 0) + (blade2 > 0.7 ? 14 : 0);
       let b = 28 + n * 25;
 
       if (patch > 0.62) {
-        // gramado seco / amarelado
         r += 45;
         g += 22;
         b -= 8;
       } else if (patch < 0.28) {
-        // musgo / sombra
         r *= 0.55;
         g *= 0.72;
         b *= 0.55;
@@ -147,7 +144,6 @@ function makeGrass(): { map: THREE.CanvasTexture; normal: THREE.CanvasTexture } 
         b *= 0.8;
       }
 
-      // fio de grama vertical (listras finas)
       const stripe = Math.sin(x * 2.8 + noise(y * 0.15, x * 0.1) * 4) * 0.5 + 0.5;
       if (stripe > 0.82) g = Math.min(255, g + 22);
 
@@ -200,12 +196,10 @@ function makeConcrete(): { map: THREE.CanvasTexture; normal: THREE.CanvasTexture
     for (let x = 0; x < size; x++) {
       const n = fbm(x * 0.05, y * 0.05);
       const grit = noise(x * 0.35, y * 0.33);
-      // painéis horizontais (juntas de concreto)
       const panelY = ((y % 64) / 64);
       const panelX = ((x % 128) / 128);
       const jointH = panelY < 0.04 || panelY > 0.96 ? -38 : 0;
       const jointV = panelX < 0.02 || panelX > 0.98 ? -28 : 0;
-      // mancha de umidade na base do tile
       const damp = panelY < 0.25 ? -12 * (1 - panelY / 0.25) : 0;
       const crack = noise(x * 0.15, y * 0.15) > 0.94 ? -40 : 0;
       const pore = grit > 0.9 ? 18 : grit < 0.1 ? -10 : 0;
@@ -220,7 +214,6 @@ function makeConcrete(): { map: THREE.CanvasTexture; normal: THREE.CanvasTexture
     }
   }
   ctx.putImageData(img, 0, 0);
-  // parafusos / marcações leves
   ctx.fillStyle = 'rgba(60,62,68,0.55)';
   for (let py = 0; py < size; py += 64) {
     for (let px = 16; px < size; px += 128) {
@@ -452,7 +445,7 @@ export function barkMaterial(): THREE.MeshStandardMaterial {
   });
 }
 
-/** Material de card de folhagem (alphaTest — sem sorting pesado de transparent). */
+/** alphaTest — evita sorting pesado de transparent */
 function foliageCardMaterial(
   pair: { map: THREE.CanvasTexture; normal: THREE.CanvasTexture },
   color: string,
@@ -483,7 +476,6 @@ export function oakFoliageMaterial(): THREE.MeshStandardMaterial {
   return foliageCardMaterial(oakLeafPair(), '#558540');
 }
 
-/** Folhagem sólida low-poly (cones/esferas) — responde bem à luz e sombras. */
 export function pineFoliageSolidMaterial(): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
     color: '#4a7a38',
@@ -514,7 +506,7 @@ export function bushSolidMaterial(): THREE.MeshStandardMaterial {
   });
 }
 
-/** Zebras / faixas com vertex colors + resposta a luz real (não toon). */
+/** vertex colors + luz real (não toon) */
 export function vertexColorStandard(): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
     vertexColors: true,

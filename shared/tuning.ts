@@ -39,9 +39,8 @@ export function upgradeCost(cat: TuneCategory, currentLevel: number): number {
 export interface EffectiveSpec {
   physics: CarPhysics;
   maxSpeedKmh: number;
-  /** multiplicador de torque (motor/turbo/câmbio) aplicado no drivetrain */
+  /** aplicado no drivetrain (motor/turbo/câmbio) */
   torqueMult: number;
-  /** 0–100 estimado após tuning (s) */
   zeroToHundredSec: number;
 }
 
@@ -84,8 +83,6 @@ export function effectiveSpec(car: CarSpec, tuning: Tuning | undefined): Effecti
     zeroToHundredSec: car.zeroToHundredSec / accelGain,
   };
 }
-
-// ---------- Performance Rating e classe (matchmaking) ----------
 
 const BASE_PR: Record<CarSpec['cls'], number> = { C: 6, B: 12, A: 18 };
 

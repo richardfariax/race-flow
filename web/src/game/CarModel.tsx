@@ -11,22 +11,17 @@ import { toonMaterial, PALETTE } from './toon';
  */
 
 export interface CarStyle {
-  /** meia-largura / meia-altura / meio-comprimento do casco */
   width: number;
   height: number;
   length: number;
-  /** altura do teto da cabine acima do casco */
   cabin: number;
-  /** tamanho do spoiler (0 = sem asa) */
+  /** 0 = sem asa */
   spoiler: number;
 }
 
 const STYLE: Record<CarClass, CarStyle> = {
-  // hatch compacto
   C: { width: 0.86, height: 0.34, length: 1.85, cabin: 0.5, spoiler: 0.0 },
-  // coupé
   B: { width: 0.9, height: 0.32, length: 1.9, cabin: 0.44, spoiler: 0.28 },
-  // supercar baixo e largo
   A: { width: 0.94, height: 0.28, length: 1.95, cabin: 0.36, spoiler: 0.42 },
 };
 
@@ -54,14 +49,13 @@ export function CarBody({ bodyColor, accentColor, cls }: CarBodyProps) {
   const w = s.width;
   const h = s.height;
   const l = s.length;
-  // posições das rodas (espelham WHEEL_POS da Vehicle)
+  // espelham WHEEL_POS da Vehicle
   const wx = 0.82;
   const wzF = 1.25;
   const wzR = -1.25;
 
   return (
     <group>
-      {/* casco inferior (largo, baixo) */}
       <mesh castShadow position={[0, -0.02, 0]} material={body}>
         <boxGeometry args={[w * 2, h * 2, l * 2]} />
       </mesh>
@@ -69,20 +63,16 @@ export function CarBody({ bodyColor, accentColor, cls }: CarBodyProps) {
       <mesh castShadow position={[0, h * 0.7, l * 0.55]} material={body}>
         <boxGeometry args={[w * 1.9, h * 0.9, l * 0.85]} />
       </mesh>
-      {/* cabine (greenhouse) */}
       <mesh castShadow position={[0, h + s.cabin * 0.5, -0.15]} material={accent}>
         <boxGeometry args={[w * 1.55, s.cabin, l * 0.95]} />
       </mesh>
-      {/* vidros: para-brisa, traseiro e laterais (uma casca de vidro) */}
       <mesh position={[0, h + s.cabin * 0.5, -0.15]} material={glass}>
         <boxGeometry args={[w * 1.58, s.cabin * 0.72, l * 0.98]} />
       </mesh>
-      {/* teto colorido por cima do vidro */}
       <mesh castShadow position={[0, h + s.cabin * 0.92, -0.15]} material={accent}>
         <boxGeometry args={[w * 1.5, s.cabin * 0.28, l * 0.8]} />
       </mesh>
 
-      {/* PARALAMAS / caixas de roda — arcos sobre cada roda */}
       {[
         [wx, wzF],
         [-wx, wzF],
@@ -90,7 +80,6 @@ export function CarBody({ bodyColor, accentColor, cls }: CarBodyProps) {
         [-wx, wzR],
       ].map(([x, z], i) => (
         <group key={i} position={[x, -0.02, z]}>
-          {/* haunch (arco) por cima do pneu */}
           <mesh castShadow position={[Math.sign(x) * 0.06, h * 0.5, 0]} material={body}>
             <boxGeometry args={[0.34, h * 1.7, 1.02]} />
           </mesh>
@@ -101,34 +90,28 @@ export function CarBody({ bodyColor, accentColor, cls }: CarBodyProps) {
         </group>
       ))}
 
-      {/* saias laterais escuras ligando as caixas */}
       {[-1, 1].map((sgn) => (
         <mesh key={sgn} castShadow position={[sgn * (w + 0.02), -h * 0.5, 0]} material={dark}>
           <boxGeometry args={[0.1, h * 0.9, l * 1.5]} />
         </mesh>
       ))}
 
-      {/* faróis */}
       {[-1, 1].map((sgn) => (
         <mesh key={sgn} position={[sgn * w * 0.6, h * 0.2, l * 0.98]} material={head}>
           <boxGeometry args={[0.34, 0.2, 0.12]} />
         </mesh>
       ))}
-      {/* grade/para-choque dianteiro */}
       <mesh castShadow position={[0, -h * 0.2, l * 1.0]} material={dark}>
         <boxGeometry args={[w * 1.5, h * 0.8, 0.16]} />
       </mesh>
 
-      {/* lanternas traseiras (faixa) */}
       <mesh position={[0, h * 0.25, -l * 0.99]} material={tail}>
         <boxGeometry args={[w * 1.5, 0.16, 0.1]} />
       </mesh>
-      {/* difusor */}
       <mesh castShadow position={[0, -h * 0.4, -l * 1.0]} material={dark}>
         <boxGeometry args={[w * 1.5, h * 0.7, 0.16]} />
       </mesh>
 
-      {/* spoiler (B/A) */}
       {s.spoiler > 0 && (
         <group position={[0, h + s.spoiler * 0.6, -l * 0.92]}>
           <mesh castShadow material={dark}>
@@ -142,7 +125,6 @@ export function CarBody({ bodyColor, accentColor, cls }: CarBodyProps) {
         </group>
       )}
 
-      {/* faixa central (racing stripe) */}
       <mesh position={[0, h + 0.01, l * 0.2]} material={chrome}>
         <boxGeometry args={[0.18, 0.02, l * 1.2]} />
       </mesh>
@@ -161,21 +143,18 @@ export function WheelMesh({ radius = 0.42, width = 0.34 }: { radius?: number; wi
   const rimDark = toonMaterial(PALETTE.rimDark);
   return (
     <group>
-      {/* pneu */}
       <mesh castShadow material={tire}>
         <cylinderGeometry args={[radius, radius, width, 20]} />
       </mesh>
-      {/* aro */}
       <mesh material={rim}>
         <cylinderGeometry args={[radius * 0.62, radius * 0.62, width * 1.02, 16]} />
       </mesh>
-      {/* raios (no plano X-Z, perpendicular ao eixo Y) */}
+      {/* raios no plano X-Z (perpendicular ao eixo Y do cylinderGeometry) */}
       {[0, 1, 2, 3, 4].map((i) => (
         <mesh key={i} rotation={[0, (i / 5) * Math.PI * 2, 0]} material={rimDark}>
           <boxGeometry args={[radius * 1.1, width * 0.45, radius * 0.14]} />
         </mesh>
       ))}
-      {/* cubo */}
       <mesh material={rimDark}>
         <cylinderGeometry args={[radius * 0.2, radius * 0.2, width * 1.1, 10]} />
       </mesh>

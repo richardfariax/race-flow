@@ -8,11 +8,6 @@ import {
   bushSolidMaterial,
 } from './trackTextures';
 
-/**
- * Ambiente Eifel/Nürburgring: céu atmosférico, floresta low-poly 3D (pinheiro +
- * folhosa), arbustos e silhueta de horizonte.
- */
-
 const SKY_RADIUS = 950;
 
 function SkyDome() {
@@ -107,7 +102,6 @@ interface TreeSpot {
   z: number;
   scale: number;
   rot: number;
-  /** variação de tom 0..1 */
   tint: number;
 }
 
@@ -191,7 +185,6 @@ function setColoredMatrix(
   mesh.setColorAt(i, color);
 }
 
-/** Pinheiro low-poly: tronco + 4 cones empilhados. */
 function PineForest({ spots }: { spots: TreeSpot[] }) {
   const trunkRef = useRef<THREE.InstancedMesh>(null);
   const layer0 = useRef<THREE.InstancedMesh>(null);
@@ -294,7 +287,6 @@ function PineForest({ spots }: { spots: TreeSpot[] }) {
   );
 }
 
-/** Folhosa low-poly: tronco + 3 esferas sobrepostas (copa orgânica). */
 function OakForest({ spots }: { spots: TreeSpot[] }) {
   const trunkRef = useRef<THREE.InstancedMesh>(null);
   const blob0 = useRef<THREE.InstancedMesh>(null);
@@ -395,7 +387,6 @@ interface BushSpot {
   tint: number;
 }
 
-/** Arbustos baixos junto à pista — esferas low-poly. */
 function buildBushes(): BushSpot[] {
   const spots: BushSpot[] = [];
   const roadClear = TRACK.width / 2 + 4.2;
@@ -493,7 +484,6 @@ function RoadsideBushes() {
   );
 }
 
-/** Silhueta irregular de floresta no horizonte com gradiente atmosférico. */
 function HorizonTreeline() {
   const geo = useMemo(() => {
     let maxR = 0;

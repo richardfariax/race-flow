@@ -82,7 +82,6 @@ function elevRaw(u: number): number {
 
 function buildSamples(): TrackSample[] {
   const n = WAYPOINTS.length;
-  // 1) posições horizontais
   const xs: number[] = [];
   const zs: number[] = [];
   for (let seg = 0; seg < n; seg++) {
@@ -98,7 +97,6 @@ function buildSamples(): TrackSample[] {
   }
   const m = xs.length;
 
-  // 2) fração horizontal da volta (fase estável do relevo)
   const hcum = new Array<number>(m);
   hcum[0] = 0;
   for (let i = 1; i < m; i++) {
@@ -107,7 +105,6 @@ function buildSamples(): TrackSample[] {
   const hTotal =
     hcum[m - 1] + Math.hypot(xs[0] - xs[m - 1], zs[0] - zs[m - 1]);
 
-  // 3) normaliza o relevo p/ [0, ELEV_HEIGHT] (baseline 0)
   let rawMin = Infinity;
   let rawMax = -Infinity;
   const raw = new Array<number>(m);
@@ -119,7 +116,6 @@ function buildSamples(): TrackSample[] {
   }
   const span = rawMax - rawMin || 1;
 
-  // 4) monta samples com y e comprimento 3D acumulado
   const pts: TrackSample[] = new Array(m);
   for (let i = 0; i < m; i++) {
     pts[i] = {
@@ -139,7 +135,6 @@ function buildSamples(): TrackSample[] {
     b.s = s;
   }
 
-  // 5) direções horizontais (diferença central, laço fechado)
   for (let i = 0; i < m; i++) {
     const a = pts[(i - 1 + m) % m];
     const b = pts[(i + 1) % m];
@@ -168,13 +163,10 @@ export const TRACK = {
 } as const;
 
 export interface TrackProgress {
-  /** distância ao longo da pista (0..length) */
   s: number;
-  /** distância lateral ao centro no plano XZ (sempre ≥ 0) */
   lateral: number;
 }
 
-/** Índice do sample mais próximo da centerline (plano XZ). */
 export function nearestSampleIndex(x: number, z: number): number {
   let best = 0;
   let bestD2 = Infinity;
@@ -190,7 +182,6 @@ export function nearestSampleIndex(x: number, z: number): number {
   return best;
 }
 
-/** Ponto mais próximo da centerline (no plano XZ). */
 export function progressAt(x: number, z: number): TrackProgress {
   const best = nearestSampleIndex(x, z);
   const p = SAMPLES[best];
@@ -199,23 +190,20 @@ export function progressAt(x: number, z: number): TrackProgress {
   return { s: p.s, lateral: Math.hypot(dx, dz) };
 }
 
-/** Altura do asfalto no ponto (XZ) mais próximo da centerline. */
 export function heightAt(x: number, z: number): number {
   return SAMPLES[nearestSampleIndex(x, z)].y;
 }
 
 export interface TrackSurface {
-  /** altura do asfalto */
   y: number;
-  /** normal unitária da superfície (aponta pra cima) */
   nx: number;
   ny: number;
   nz: number;
 }
 
 /**
- * Altura + normal do asfalto no XZ dado — para efeitos no chão e assistência
- * de estabilidade alinhada ao relevo (não ao eixo Y do mundo).
+ * Altura + normal do asfalto — assistência de estabilidade alinhada ao relevo
+ * (não ao eixo Y do mundo).
  */
 export function surfaceAt(x: number, z: number): TrackSurface {
   const i = nearestSampleIndex(x, z);
@@ -223,7 +211,6 @@ export function surfaceAt(x: number, z: number): TrackSurface {
   const p = SAMPLES[i];
   const a = SAMPLES[(i - 1 + n) % n];
   const b = SAMPLES[(i + 1) % n];
-  // tangente 3D ao longo da pista
   let tx = b.x - a.x;
   let ty = b.y - a.y;
   let tz = b.z - a.z;

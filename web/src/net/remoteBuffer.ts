@@ -20,7 +20,6 @@ export function pushSnap(sessionId: string, snap: Snap): void {
     remoteBuffers.set(sessionId, buf);
   }
   buf.push(snap);
-  // mantém ~1s de histórico
   const cutoff = snap.t - 1000;
   while (buf.length > 2 && buf[0].t < cutoff) buf.shift();
 }

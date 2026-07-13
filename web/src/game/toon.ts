@@ -9,7 +9,6 @@ let gradientMap: THREE.DataTexture | null = null;
 
 function getGradientMap(): THREE.DataTexture {
   if (!gradientMap) {
-    // 4 degraus de luz — visual cartoon clássico
     const data = new Uint8Array([100, 160, 215, 255]);
     gradientMap = new THREE.DataTexture(data, 4, 1, THREE.RedFormat);
     gradientMap.minFilter = THREE.NearestFilter;
