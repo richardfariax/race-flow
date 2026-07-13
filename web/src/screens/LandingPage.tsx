@@ -74,6 +74,15 @@ export function LandingPage() {
   const [lb, setLb] = useState<LbRow[]>([]);
   const [code, setCode] = useState('');
 
+  /** treino livre roda offline (sem conta); todo o resto exige login (server.onJoin usa tuning do banco) */
+  const goPlay = (path: string) => {
+    if (!session && !path.includes('mode=practice')) {
+      setAuthOpen(true);
+      return;
+    }
+    router.push(path);
+  };
+
   useEffect(() => {
     if (!supabase) return;
     supabase
@@ -104,7 +113,7 @@ export function LandingPage() {
               guardar progresso, tuning e pintura.
             </p>
             <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
-              <Button size="lg" className="h-12 px-8 text-base" onClick={() => router.push('/play?mode=circuit')}>
+              <Button size="lg" className="h-12 px-8 text-base" onClick={() => goPlay('/play?mode=circuit')}>
                 Jogar agora
               </Button>
               <Button size="lg" variant="outline" className="h-12 px-8 text-base" onClick={() => router.push('/garage')}>
@@ -119,9 +128,10 @@ export function LandingPage() {
                     variant="ghost"
                     size="sm"
                     className="text-muted-foreground"
-                    onClick={() => router.push(`/play?mode=${m.id}`)}
+                    onClick={() => goPlay(`/play?mode=${m.id}`)}
                   >
                     {m.label}
+                    {!session && m.id !== 'practice' ? ' (login)' : ''}
                   </Button>
                 </li>
               ))}
@@ -143,8 +153,8 @@ export function LandingPage() {
                   <CardDescription className="text-sm leading-relaxed">{mode.desc}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button size="sm" variant="ghost" onClick={() => router.push(`/play?mode=${mode.id}`)}>
-                    Jogar
+                  <Button size="sm" variant="ghost" onClick={() => goPlay(`/play?mode=${mode.id}`)}>
+                    {!session && mode.id !== 'practice' ? 'Entrar para jogar' : 'Jogar'}
                   </Button>
                 </CardContent>
               </Card>
@@ -159,10 +169,10 @@ export function LandingPage() {
               <CardDescription>Crie uma sala privada, compartilhe o código e controle a largada.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => router.push('/play?mode=circuit&private=1')}>
+              <Button size="sm" onClick={() => goPlay('/play?mode=circuit&private=1')}>
                 Corrida privada
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => router.push('/play?mode=drift&private=1')}>
+              <Button size="sm" variant="ghost" onClick={() => goPlay('/play?mode=drift&private=1')}>
                 Drift privado
               </Button>
             </CardContent>
@@ -177,10 +187,10 @@ export function LandingPage() {
               <Input
                 value={code}
                 onChange={(e) => setCode(e.target.value.trim())}
-                onKeyDown={(e) => e.key === 'Enter' && code && router.push(`/play?room=${code}`)}
+                onKeyDown={(e) => e.key === 'Enter' && code && goPlay(`/play?room=${code}`)}
                 placeholder="Código da sala"
               />
-              <Button size="default" disabled={!code} onClick={() => router.push(`/play?room=${code}`)}>
+              <Button size="default" disabled={!code} onClick={() => goPlay(`/play?room=${code}`)}>
                 Entrar
               </Button>
             </CardContent>

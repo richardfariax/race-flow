@@ -9,6 +9,7 @@ import type { GameMode } from '@shared/protocol';
 import { carOrStarter } from '@shared/cars';
 import { matchClass } from '@shared/tuning';
 import { useAuth } from '../lib/auth';
+import { AuthModal } from '../ui/AuthModal';
 import { getLivery } from '../lib/livery';
 import { spawnSlot } from '@shared/track';
 import { useGameStore, type SpawnPose } from '../state/gameStore';
@@ -89,6 +90,9 @@ export function PlayPage() {
   const sessionRef = useRef<NetSession | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  /** matchmaking/tuning online exigem conta (RaceRoom.onJoin só busca tuning c/ token) */
+  const authRequired = online && isGuest;
 
   const startJoin = useCallback(() => {
     const session = new NetSession();
@@ -118,13 +122,14 @@ export function PlayPage() {
       useGameStore.getState().setSpawn(PRACTICE_SPAWN);
       return;
     }
+    if (authRequired) return; // aguarda login — ver overlay abaixo
     const session = startJoin();
     return () => {
       session.leave();
       resetGame();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [online, startJoin, attempt]);
+  }, [online, authRequired, startJoin, attempt]);
 
   const retry = () => {
     sessionRef.current?.leave();
@@ -175,6 +180,25 @@ export function PlayPage() {
         >
           Encerrar sessão
         </Button>
+      )}
+
+      {authRequired && (
+        <Overlay>
+          <h2 className="font-display text-3xl font-bold tracking-wide uppercase">Entre para jogar online</h2>
+          <p className="max-w-md text-muted-foreground">
+            Corrida online, drift e time trial precisam de conta — é o que garante tuning e
+            matchmaking corretos. Convidado só joga o treino livre.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button onClick={() => setAuthOpen(true)}>Entrar / criar conta</Button>
+            <Button variant="outline" onClick={() => router.push('/play?mode=practice')}>
+              Treino livre (offline)
+            </Button>
+            <Button variant="ghost" asChild>
+              <Link href="/">Voltar</Link>
+            </Button>
+          </div>
+        </Overlay>
       )}
 
       {online && connection === 'connecting' && (
@@ -288,6 +312,8 @@ export function PlayPage() {
           </Card>
         </Overlay>
       )}
+
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
     </div>
   );
 }

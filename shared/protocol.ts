@@ -20,6 +20,15 @@ export const NET = {
   maxRaceMs: 360_000,
   /** margem sobre a vel. máxima do carro na validação anti-teleporte */
   speedValidationMargin: 1.6,
+  /**
+   * teto de dt (s) usado no cálculo de distância máxima plausível entre dois
+   * 'state' consecutivos. Precisa ser folgado: hiccups de rede e throttling
+   * de timer em aba em segundo plano (comuns em navegador) geram gaps reais
+   * de até ~1s sem o jogador ter feito nada de errado. Um teto baixo aqui
+   * subestima a distância permitida para o gap real e gera falso positivo
+   * (o servidor teleporta o carro de volta — sensação de "bater em algo").
+   */
+  maxStateDeltaS: 2,
 } as const;
 
 /** cliente → servidor: 'state' */

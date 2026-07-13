@@ -197,7 +197,9 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     if (vals.some((v) => typeof v !== 'number' || !Number.isFinite(v))) return;
 
     const t = now();
-    const dt = rt.lastMsgAt ? Math.min((t - rt.lastMsgAt) / 1000, 0.5) : 1 / NET.stateSendHz;
+    const dt = rt.lastMsgAt
+      ? Math.min((t - rt.lastMsgAt) / 1000, NET.maxStateDeltaS)
+      : 1 / NET.stateSendHz;
     rt.lastMsgAt = t;
 
     // anti-teleporte: deslocamento máximo plausível p/ carro+tuning no intervalo
