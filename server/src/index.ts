@@ -4,7 +4,8 @@ import { RaceRoom } from './rooms/RaceRoom';
 
 /**
  * Servidor de jogo (Colyseus). Uma sala por corrida; salas de 'circuit' e
- * 'drift' não se misturam (filterBy mode). Deploy: Render (free tier tem
+ * 'drift', e classes de carro diferentes, não se misturam (filterBy mode +
+ * carClass). Deploy: Render (free tier tem
  * spin-down — 1ª conexão pode levar ~1min; documentado no README).
  */
 
@@ -19,7 +20,7 @@ const server = new Server({
   },
 });
 
-server.define('race', RaceRoom).filterBy(['mode']);
+server.define('race', RaceRoom).filterBy(['mode', 'carClass']);
 
 server.listen(port).then(() => {
   console.log(`[race-flow] servidor ouvindo na porta ${port}`);
