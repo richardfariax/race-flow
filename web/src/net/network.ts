@@ -24,6 +24,9 @@ export interface JoinRequest {
   createPrivate?: boolean;
   /** entra numa sala existente pelo código (roomId) */
   roomCode?: string;
+  /** cosméticos (hex #rrggbb; o servidor revalida) */
+  bodyColor?: string;
+  accentColor?: string;
 }
 
 export class NetSession {
@@ -44,7 +47,14 @@ export class NetSession {
 
     try {
       const client = new Client(SERVER_URL);
-      const opts = { nick: req.nick, carId: req.carId, token: req.token, carClass: req.carClass };
+      const opts = {
+        nick: req.nick,
+        carId: req.carId,
+        token: req.token,
+        carClass: req.carClass,
+        bodyColor: req.bodyColor,
+        accentColor: req.accentColor,
+      };
       const room = req.roomCode
         ? await client.joinById(req.roomCode, opts)
         : req.createPrivate
@@ -105,6 +115,8 @@ export class NetSession {
         sessionId,
         nick: p.nick,
         carId: p.carId,
+        bodyColor: p.bodyColor,
+        accentColor: p.accentColor,
         lap: p.lap,
         checkpoint: p.checkpoint,
         driftScore: p.driftScore,
