@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
@@ -6,12 +6,25 @@ import type { GameMode } from '@shared/protocol';
 import { carOrStarter } from '@shared/cars';
 import { matchClass } from '@shared/tuning';
 import { useAuth } from '../lib/auth';
+import { getLivery } from '../lib/livery';
+import { spawnSlot } from '@shared/track';
 import { useGameStore, type SpawnPose } from '../state/gameStore';
 import { NetSession } from '../net/network';
 import { GameScene } from '../game/GameScene';
 import { HUD } from '../ui/HUD';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
-const PRACTICE_SPAWN: SpawnPose = { x: 50, y: 1.2, z: 0, yaw: 0 };
+const PRACTICE_SPAWN: SpawnPose = spawnSlot(0);
 
 function fmtMetric(mode: string, metric: number): string {
   if (mode === 'drift') return `${metric.toLocaleString('pt-BR')} pts`;
@@ -19,6 +32,28 @@ function fmtMetric(mode: string, metric: number): string {
   const s = Math.floor((metric % 60000) / 1000);
   const c = Math.floor((metric % 1000) / 10);
   return `${m}:${String(s).padStart(2, '0')}.${String(c).padStart(2, '0')}`;
+}
+
+function Overlay({
+  children,
+  transparent = false,
+  className,
+}: {
+  children: ReactNode;
+  transparent?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 px-5 text-center',
+        transparent ? 'pointer-events-none bg-transparent' : 'bg-background/85 backdrop-blur-sm',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function PlayPage() {
@@ -29,10 +64,13 @@ export function PlayPage() {
   const modeParam = params.get('mode') ?? 'circuit';
   const roomCode = params.get('room');
   const createPrivate = params.get('private') === '1';
-  const online = roomCode !== null || modeParam === 'circuit' || modeParam === 'drift';
+  const timetrial = modeParam === 'timetrial';
+  const online =
+    roomCode !== null || modeParam === 'circuit' || modeParam === 'drift' || timetrial;
 
   const car = useMemo(() => carOrStarter(selectedCarId), [selectedCarId]);
   const tuning = tunings[car.id];
+  const livery = useMemo(() => getLivery(car.id), [car.id]);
 
   const connection = useGameStore((s) => s.connection);
   const connectionError = useGameStore((s) => s.connectionError);
@@ -60,10 +98,12 @@ export function PlayPage() {
       mode: roomCode ? undefined : (modeParam as GameMode),
       createPrivate,
       roomCode: roomCode ?? undefined,
+      bodyColor: livery.body,
+      accentColor: livery.accent,
     });
     return session;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modeParam, roomCode, createPrivate, car.id]);
+  }, [modeParam, roomCode, createPrivate, car.id, livery.body, livery.accent]);
 
   useEffect(() => {
     if (!online) {
@@ -90,71 +130,84 @@ export function PlayPage() {
   const isHost = mySessionId !== '' && mySessionId === hostId;
 
   return (
-    <div style={{ position: 'fixed', inset: 0 }}>
+    <div className="fixed inset-0">
       {ready && (
-        <Canvas shadows dpr={[1, 2]} camera={{ fov: 55, position: [58, 5, -12], near: 0.1, far: 500 }}>
-          <color attach="background" args={['#8ed6f0']} />
-          <fog attach="fog" args={['#a9e2f5', 120, 380]} />
+        <Canvas
+          shadows
+          dpr={[1, 1.5]}
+          gl={{
+            antialias: true,
+            powerPreference: 'high-performance',
+            stencil: false,
+            depth: true,
+          }}
+          camera={{ fov: 50, position: [58, 5, -12], near: 0.1, far: 1400 }}
+        >
+          <color attach="background" args={['#7eb4e4']} />
+          <fog attach="fog" args={['#a8c4b4', 150, 520]} />
           <Suspense fallback={null}>
             <Physics timeStep={1 / 60}>
-              <GameScene car={car} tuning={tuning} spawn={spawn} online={online} />
+              <GameScene
+                car={car}
+                tuning={tuning}
+                spawn={spawn}
+                online={online}
+                bodyColor={livery.body}
+                accentColor={livery.accent}
+                timetrial={timetrial}
+              />
             </Physics>
           </Suspense>
         </Canvas>
       )}
       <HUD online={online} />
 
-      {/* conectando (free tier do Render tem cold start ~1min) */}
+      {timetrial && phase === 'racing' && (
+        <Button
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2"
+          onClick={() => sessionRef.current?.send('finishTT')}
+        >
+          Encerrar sessão
+        </Button>
+      )}
+
       {online && connection === 'connecting' && (
-        <div className="overlay">
-          <div className="spin" />
-          <h2>Conectando ao servidor...</h2>
-          <p style={{ color: 'var(--muted)', maxWidth: 420 }}>
+        <Overlay>
+          <div className="size-10 animate-spin rounded-full border-2 border-white/20 border-t-primary" />
+          <h2 className="font-display text-3xl font-bold tracking-wide uppercase">Conectando ao servidor...</h2>
+          <p className="max-w-md text-muted-foreground">
             Se o servidor estava dormindo (plano gratuito), a primeira conexão pode levar até um
             minuto. Segura o volante aí.
           </p>
-        </div>
+        </Overlay>
       )}
 
       {online && connection === 'error' && (
-        <div className="overlay">
-          <h2>Não deu pra conectar 😕</h2>
-          <p style={{ color: 'var(--muted)' }}>{connectionError}</p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <button className="btn" onClick={retry}>
-              Tentar de novo
-            </button>
-            <button className="btn btn-ghost" onClick={() => navigate('/play?mode=practice')}>
+        <Overlay>
+          <h2 className="font-display text-3xl font-bold tracking-wide uppercase">Não deu pra conectar</h2>
+          <p className="text-muted-foreground">{connectionError}</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button onClick={retry}>Tentar de novo</Button>
+            <Button variant="outline" onClick={() => navigate('/play?mode=practice')}>
               Treino livre (offline)
-            </button>
-            <Link className="btn btn-ghost" to="/">
-              Voltar
-            </Link>
+            </Button>
+            <Button variant="ghost" asChild>
+              <Link to="/">Voltar</Link>
+            </Button>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {online && connection === 'connected' && phase === 'lobby' && (
-        <div className={isPrivate ? 'overlay' : 'overlay transparent'}>
+        <Overlay transparent={!isPrivate}>
           {isPrivate ? (
-            <>
-              <h2>Sala privada</h2>
-              <p style={{ color: 'var(--muted)' }}>Passe o código para os amigos:</p>
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 10,
-                  alignItems: 'center',
-                  background: 'var(--card)',
-                  padding: '10px 18px',
-                  borderRadius: 12,
-                }}
-              >
-                <code style={{ fontSize: 26, fontWeight: 900, letterSpacing: 2, color: 'var(--accent)' }}>
-                  {roomId}
-                </code>
-                <button
-                  className="btn btn-sm"
+            <div className="pointer-events-auto flex flex-col items-center gap-4">
+              <h2 className="font-display text-3xl font-bold tracking-wide uppercase">Sala privada</h2>
+              <p className="text-muted-foreground">Passe o código para os amigos:</p>
+              <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-card px-4 py-2.5">
+                <code className="font-mono text-2xl font-bold tracking-widest text-primary">{roomId}</code>
+                <Button
+                  size="sm"
                   onClick={() => {
                     void navigator.clipboard.writeText(roomId);
                     setCopied(true);
@@ -162,74 +215,72 @@ export function PlayPage() {
                   }}
                 >
                   {copied ? 'Copiado!' : 'Copiar'}
-                </button>
+                </Button>
               </div>
               {isHost ? (
-                <button className="btn btn-primary" onClick={() => sessionRef.current?.send('start')}>
-                  🏁 Começar corrida
-                </button>
+                <Button onClick={() => sessionRef.current?.send('start')}>Começar corrida</Button>
               ) : (
-                <p style={{ color: 'var(--muted)' }}>Aguardando o anfitrião dar a largada...</p>
+                <p className="text-muted-foreground">Aguardando o anfitrião dar a largada...</p>
               )}
-            </>
+            </div>
           ) : (
-            <h2 style={{ textShadow: '2px 2px 0 #1a1a2e' }}>Aguardando pilotos...</h2>
+            <h2 className="font-display text-3xl font-bold tracking-wide uppercase drop-shadow-[2px_2px_0_#1a1a2e]">
+              Aguardando pilotos...
+            </h2>
           )}
-        </div>
+        </Overlay>
       )}
 
       {results && (
-        <div className="overlay">
-          <div className="results-panel">
-            <h2 style={{ marginTop: 0 }}>
-              {results.mode === 'drift' ? '🌀 Resultado do Drift' : '🏁 Resultado da corrida'}
-            </h2>
-            <table className="lb-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Piloto</th>
-                  <th>{results.mode === 'drift' ? 'Pontos' : 'Tempo'}</th>
-                  <th>Moedas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.entries.map((e) => (
-                  <tr
-                    key={e.sessionId}
-                    style={e.sessionId === mySessionId ? { outline: '2px solid var(--accent)' } : undefined}
-                  >
-                    <td>{e.position}</td>
-                    <td>
-                      {e.nick}
-                      {e.sessionId === mySessionId ? ' (você)' : ''}
-                    </td>
-                    <td>{fmtMetric(results.mode, e.metric)}</td>
-                    <td>+{e.coins} 🪙</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {isGuest && (
-              <p style={{ color: 'var(--accent)', fontSize: 14 }}>
-                Você está como convidado — crie uma conta na página inicial para guardar essas
-                moedas.
-              </p>
-            )}
-            <div style={{ display: 'flex', gap: 12, marginTop: 16, justifyContent: 'center' }}>
-              <button
-                className="btn btn-primary"
-                style={{ fontSize: 16, padding: '12px 22px' }}
-                onClick={retry}
-              >
-                Correr de novo
-              </button>
-              <Link className="btn btn-ghost" to="/">
-                Menu
-              </Link>
-            </div>
-          </div>
-        </div>
+        <Overlay>
+          <Card className="pointer-events-auto w-full max-w-lg border-white/10 bg-card/95">
+            <CardHeader>
+              <CardTitle className="font-display text-2xl tracking-wide uppercase">
+                {results.mode === 'drift' ? 'Resultado do Drift' : 'Resultado da corrida'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>#</TableHead>
+                    <TableHead>Piloto</TableHead>
+                    <TableHead>{results.mode === 'drift' ? 'Pontos' : 'Tempo'}</TableHead>
+                    <TableHead>Moedas</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {results.entries.map((e) => (
+                    <TableRow
+                      key={e.sessionId}
+                      className={e.sessionId === mySessionId ? 'outline outline-2 outline-primary' : undefined}
+                    >
+                      <TableCell>{e.position}</TableCell>
+                      <TableCell>
+                        {e.nick}
+                        {e.sessionId === mySessionId ? ' (você)' : ''}
+                      </TableCell>
+                      <TableCell>{fmtMetric(results.mode, e.metric)}</TableCell>
+                      <TableCell>+{e.coins}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {isGuest && (
+                <p className="mt-3 text-sm text-primary">
+                  Você está como convidado — crie uma conta na página inicial para guardar essas
+                  moedas.
+                </p>
+              )}
+              <div className="mt-4 flex justify-center gap-3">
+                <Button onClick={retry}>Correr de novo</Button>
+                <Button variant="outline" asChild>
+                  <Link to="/">Menu</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </Overlay>
       )}
     </div>
   );
