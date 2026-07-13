@@ -56,10 +56,14 @@ const LS_CAR = 'rf_selected_car';
 const LS_TUNING = 'rf_tunings';
 
 function makeGuestNick(): string {
-  const saved = sessionStorage.getItem('rf_guest_nick');
-  if (saved) return saved;
   const nick = `Convidado${Math.floor(Math.random() * 9000 + 1000)}`;
-  sessionStorage.setItem('rf_guest_nick', nick);
+  try {
+    const saved = sessionStorage.getItem('rf_guest_nick');
+    if (saved) return saved;
+    sessionStorage.setItem('rf_guest_nick', nick);
+  } catch {
+    /* SSR (sem sessionStorage) ou storage indisponível */
+  }
   return nick;
 }
 
