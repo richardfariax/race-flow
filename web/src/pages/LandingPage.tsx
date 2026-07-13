@@ -1,9 +1,17 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { AuthModal } from '../ui/AuthModal';
+import { DailyChallenges, FriendsPanel } from '../ui/Fase2Panels';
+import { SiteNav } from '../ui/SiteNav';
 import { TRACK } from '@shared/track';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+
+const DEVELOPER_URL = 'https://www.linkedin.com/in/richardfariasss/';
 
 interface LbRow {
   nick: string;
@@ -17,9 +25,49 @@ function fmtTime(ms: number): string {
   return `${m}:${String(s).padStart(2, '0')}.${String(c).padStart(2, '0')}`;
 }
 
+const MODES = [
+  {
+    id: 'circuit',
+    label: 'Corrida online',
+    title: 'Grid ao pódio',
+    desc: `${TRACK.totalLaps} voltas em ${TRACK.name}. Até 8 pilotos, checkpoints e resultado validado.`,
+  },
+  {
+    id: 'drift',
+    label: 'Drift Challenge',
+    title: 'Pontue a derrapagem',
+    desc: 'Dois minutos de estilo. Combo cresce com ângulo e velocidade — endireita e zera.',
+  },
+  {
+    id: 'timetrial',
+    label: 'Time Trial',
+    title: 'Contra o relógio',
+    desc: 'Solo com fantasma da sua melhor volta. Tempo registrado no ranking global.',
+  },
+  {
+    id: 'practice',
+    label: 'Treino livre',
+    title: 'Sem cronômetro',
+    desc: 'Aprenda traçado, teste setup e aqueça antes de entrar na corrida.',
+  },
+] as const;
+
+function SiteShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative h-full min-h-full overflow-x-hidden overflow-y-auto">
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden>
+        <div className="absolute top-[-80px] left-1/2 h-80 w-[640px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse,rgba(239,68,68,0.35),transparent_70%)] opacity-90 blur-[100px]" />
+        <div className="absolute right-[-80px] bottom-[-120px] size-[480px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.08),transparent_70%)] opacity-80 blur-[100px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_70%_at_50%_0%,transparent_40%,rgba(0,0,0,0.55)_100%)]" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function LandingPage() {
   const navigate = useNavigate();
-  const { session, profile, signOut } = useAuth();
+  const { session } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const [lb, setLb] = useState<LbRow[]>([]);
   const [code, setCode] = useState('');
@@ -32,158 +80,178 @@ export function LandingPage() {
       .eq('mode', 'circuit')
       .eq('track', TRACK.id)
       .order('best_metric', { ascending: true })
-      .limit(5)
+      .limit(8)
       .then(({ data }) => setLb((data as LbRow[]) ?? []));
   }, []);
 
   return (
-    <div className="landing">
-      <header className="landing-header">
-        <span className="logo">RACE FLOW</span>
-        <nav style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <Link className="btn btn-ghost btn-sm" to="/garage">
-            Garagem
-          </Link>
-          {session ? (
-            <>
-              <span style={{ color: 'var(--muted)', fontSize: 14 }}>
-                {profile?.nick} · <b style={{ color: 'var(--accent)' }}>{profile?.coins ?? 0} 🪙</b>
-              </span>
-              <button className="btn btn-ghost btn-sm" onClick={() => void signOut()}>
-                Sair
-              </button>
-            </>
-          ) : (
-            <button className="btn btn-sm" onClick={() => setAuthOpen(true)}>
-              Entrar / Criar conta
-            </button>
-          )}
-        </nav>
-      </header>
+    <SiteShell>
+      <SiteNav onAuthClick={() => setAuthOpen(true)} />
 
-      <section className="hero">
-        <div className="hero-car">🏎️💨</div>
-        <h1>RACE FLOW</h1>
-        <p>Corrida multiplayer cartoon no navegador. Derrapa, acelera, capota — sem instalar nada.</p>
-        <div className="hero-ctas">
-          <button className="btn btn-primary" onClick={() => navigate('/play?mode=circuit')}>
-            ▶ Jogar agora
-          </button>
-          <button className="btn btn-ghost" onClick={() => navigate('/play?mode=drift')}>
-            Drift Challenge
-          </button>
-          <button className="btn btn-ghost" onClick={() => navigate('/play?mode=practice')}>
-            Treino livre
-          </button>
-        </div>
-        <p style={{ fontSize: 13, marginTop: 18 }}>
-          Entre como convidado e caia direto na pista. Crie conta para salvar moedas e carros.
-        </p>
-      </section>
-
-      <section className="section">
-        <h2>Modos de jogo</h2>
-        <div className="cards">
-          <div className="card">
-            <span className="tag">Online · 2–8 pilotos</span>
-            <h3>🏁 Corrida</h3>
-            <p>
-              {TRACK.totalLaps} voltas no {TRACK.name}. Largada em grid, checkpoints e pódio
-              validados no servidor. Sem trapaça.
+      <main className="relative z-10 mx-auto w-full max-w-5xl px-5 pb-16 sm:px-8">
+        <section className="flex min-h-[min(78vh,720px)] items-center justify-center py-14 text-center sm:py-18">
+          <div className="max-w-3xl">
+            <p className="mb-4 text-sm font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+              Corrida multiplayer · direto no navegador
             </p>
-          </div>
-          <div className="card">
-            <span className="tag">Online · pontuação</span>
-            <h3>🌀 Drift Challenge</h3>
-            <p>
-              2 minutos, pontue derrapando: ângulo × velocidade × tempo com combo que cresce — e
-              zera se você endireitar.
+            <h1 className="font-display mb-5 text-[clamp(3.5rem,11vw,6.5rem)] leading-[0.92] font-bold tracking-[0.04em] uppercase">
+              Race Flow
+            </h1>
+            <p className="mx-auto mb-8 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+              Física arcade, modelos reais e salas online. Entre como convidado ou crie conta para
+              guardar progresso, tuning e pintura.
             </p>
-          </div>
-          <div className="card">
-            <span className="tag">Em breve</span>
-            <h3>⏱️ Time Trial + Ghost</h3>
-            <p>Contra o relógio com o fantasma da sua melhor volta. Chegando na Fase 2.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="section">
-        <h2>Jogar com amigos</h2>
-        <div className="cards">
-          <div className="card">
-            <span className="tag">Sala privada</span>
-            <h3>🔒 Criar sala</h3>
-            <p>Sala fora do matchmaking com código para compartilhar. Você dá a largada.</p>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn btn-sm" onClick={() => navigate('/play?mode=circuit&private=1')}>
-                🏁 Corrida
-              </button>
-              <button className="btn btn-sm btn-ghost" onClick={() => navigate('/play?mode=drift&private=1')}>
-                🌀 Drift
-              </button>
+            <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
+              <Button size="lg" className="h-12 px-8 text-base" onClick={() => navigate('/play?mode=circuit')}>
+                Jogar agora
+              </Button>
+              <Button size="lg" variant="outline" className="h-12 px-8 text-base" onClick={() => navigate('/garage')}>
+                Garagem
+              </Button>
             </div>
+            <ul className="flex flex-wrap items-center justify-center gap-2">
+              {MODES.map((m) => (
+                <li key={m.id}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={() => navigate(`/play?mode=${m.id}`)}
+                  >
+                    {m.label}
+                  </Button>
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="card">
-            <span className="tag">Convite</span>
-            <h3>🎟️ Entrar com código</h3>
-            <p>Recebeu um código de um amigo? Cola aqui e cai direto na sala.</p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
+        </section>
+
+        <section className="mb-16">
+          <div className="mb-6">
+            <h2 className="font-display text-3xl font-bold tracking-wide uppercase">Modos de jogo</h2>
+            <p className="mt-2 text-muted-foreground">Do grid competitivo ao drift — escolha como quer pilotar hoje.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {MODES.map((mode) => (
+              <Card key={mode.id} className="border-white/10 bg-white/[0.03]">
+                <CardHeader>
+                  <p className="text-xs font-semibold tracking-wider text-primary uppercase">{mode.label}</p>
+                  <CardTitle className="font-display text-2xl tracking-wide uppercase">{mode.title}</CardTitle>
+                  <CardDescription className="text-sm leading-relaxed">{mode.desc}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button size="sm" variant="ghost" onClick={() => navigate(`/play?mode=${mode.id}`)}>
+                    Jogar
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-16 grid gap-4 md:grid-cols-2">
+          <Card className="border-white/10 bg-white/[0.03]">
+            <CardHeader>
+              <CardTitle className="font-display text-xl tracking-wide uppercase">Jogar com amigos</CardTitle>
+              <CardDescription>Crie uma sala privada, compartilhe o código e controle a largada.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => navigate('/play?mode=circuit&private=1')}>
+                Corrida privada
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => navigate('/play?mode=drift&private=1')}>
+                Drift privado
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-white/10 bg-white/[0.03]">
+            <CardHeader>
+              <CardTitle className="font-display text-xl tracking-wide uppercase">Entrar com código</CardTitle>
+              <CardDescription>Recebeu um convite? Cole o código e entre na sala.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2 sm:flex-row">
+              <Input
                 value={code}
                 onChange={(e) => setCode(e.target.value.trim())}
                 onKeyDown={(e) => e.key === 'Enter' && code && navigate(`/play?room=${code}`)}
                 placeholder="Código da sala"
-                style={{
-                  flex: 1,
-                  padding: '9px 12px',
-                  borderRadius: 10,
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  background: 'var(--bg)',
-                  color: 'var(--text)',
-                }}
               />
-              <button className="btn btn-sm" disabled={!code} onClick={() => navigate(`/play?room=${code}`)}>
+              <Button size="default" disabled={!code} onClick={() => navigate(`/play?room=${code}`)}>
                 Entrar
-              </button>
-            </div>
+              </Button>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="mb-16">
+          <div className="mb-6">
+            <h2 className="font-display text-3xl font-bold tracking-wide uppercase">Desafios diários</h2>
+            <p className="mt-2 text-muted-foreground">Metas do dia com recompensas para quem tem conta.</p>
           </div>
-        </div>
-      </section>
+          <DailyChallenges />
+        </section>
 
-      <section className="section">
-        <h2>Ranking global · Corrida</h2>
-        {lb.length > 0 ? (
-          <table className="lb-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Piloto</th>
-                <th>Melhor tempo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lb.map((r, i) => (
-                <tr key={i}>
-                  <td>{i + 1}</td>
-                  <td>{r.nick}</td>
-                  <td>{fmtTime(r.best_metric)}</td>
-                </tr>
+        <section className="mb-16">
+          <div className="mb-6">
+            <h2 className="font-display text-3xl font-bold tracking-wide uppercase">Amigos</h2>
+            <p className="mt-2 text-muted-foreground">Acompanhe pilotos e compare tempos.</p>
+          </div>
+          <FriendsPanel />
+        </section>
+
+        <section className="mb-10">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="font-display text-3xl font-bold tracking-wide uppercase">Ranking global</h2>
+              <p className="mt-2 text-muted-foreground">Melhores tempos no modo Corrida.</p>
+            </div>
+            {!session && (
+              <Button size="sm" variant="ghost" onClick={() => setAuthOpen(true)}>
+                Entrar para competir
+              </Button>
+            )}
+          </div>
+          {lb.length > 0 ? (
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+              {lb.map((row, index) => (
+                <div
+                  key={`${row.nick}-${index}`}
+                  className={cn(
+                    'grid grid-cols-[3rem_1fr_auto] items-center gap-3 border-b border-white/5 px-4 py-3 last:border-b-0',
+                    index === 0 && 'bg-gold/10',
+                    index === 1 && 'bg-white/[0.04]',
+                    index === 2 && 'bg-primary/10',
+                  )}
+                >
+                  <span className="font-mono text-sm text-muted-foreground">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <span className="font-medium">{row.nick}</span>
+                  <span className="font-mono text-sm tabular-nums">{fmtTime(row.best_metric)}</span>
+                </div>
               ))}
-            </tbody>
-          </table>
-        ) : (
-          <p style={{ color: 'var(--muted)' }}>
-            Ainda sem tempos registrados — seja o primeiro do ranking. 🏆
-          </p>
-        )}
-      </section>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">Nenhum tempo registrado ainda. Seja o primeiro.</p>
+          )}
+        </section>
+      </main>
 
-      <footer className="footer">
-        Race Flow — corrida cartoon open web · feito com react-three-fiber + Rapier + Colyseus
+      <footer className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-2 border-t border-white/10 px-5 py-8 text-sm text-muted-foreground sm:flex-row sm:px-8">
+        <span className="font-display tracking-wide uppercase text-foreground">Race Flow</span>
+        <a
+          className="transition-colors hover:text-foreground"
+          href={DEVELOPER_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Desenvolvido por Richard Farias
+        </a>
       </footer>
 
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
-    </div>
+    </SiteShell>
   );
 }
