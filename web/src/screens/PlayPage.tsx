@@ -1,23 +1,31 @@
-'use client';
+"use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Canvas } from '@react-three/fiber';
-import { Physics } from '@react-three/rapier';
-import type { GameMode } from '@shared/protocol';
-import { carOrStarter } from '@shared/cars';
-import { matchClass } from '@shared/tuning';
-import { useAuth } from '../lib/auth';
-import { AuthModal } from '../ui/AuthModal';
-import { getLivery } from '../lib/livery';
-import { spawnSlot } from '@shared/track';
-import { useGameStore, type SpawnPose } from '../state/gameStore';
-import { NetSession } from '../net/network';
-import { GameScene } from '../game/GameScene';
-import { HUD } from '../ui/HUD';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Canvas } from "@react-three/fiber";
+import { Physics } from "@react-three/rapier";
+import type { GameMode } from "@shared/protocol";
+import { carOrStarter } from "@shared/cars";
+import { matchClass } from "@shared/tuning";
+import { useAuth } from "../lib/auth";
+import { AuthModal } from "../ui/AuthModal";
+import { getLivery } from "../lib/livery";
+import { spawnSlot } from "@shared/track";
+import { useGameStore, type SpawnPose } from "../state/gameStore";
+import { NetSession } from "../net/network";
+import { GameScene } from "../game/GameScene";
+import { HUD } from "../ui/HUD";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -25,17 +33,17 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 const PRACTICE_SPAWN: SpawnPose = spawnSlot(0);
 
 function fmtMetric(mode: string, metric: number): string {
-  if (mode === 'drift') return `${metric.toLocaleString('pt-BR')} pts`;
+  if (mode === "drift") return `${metric.toLocaleString("pt-BR")} pts`;
   const m = Math.floor(metric / 60000);
   const s = Math.floor((metric % 60000) / 1000);
   const c = Math.floor((metric % 1000) / 10);
-  return `${m}:${String(s).padStart(2, '0')}.${String(c).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, "0")}.${String(c).padStart(2, "0")}`;
 }
 
 function Overlay({
@@ -50,8 +58,10 @@ function Overlay({
   return (
     <div
       className={cn(
-        'fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 px-5 text-center',
-        transparent ? 'pointer-events-none bg-transparent' : 'bg-background/85 backdrop-blur-sm',
+        "fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 px-5 text-center",
+        transparent
+          ? "pointer-events-none bg-transparent"
+          : "bg-background/85 backdrop-blur-sm",
         className,
       )}
     >
@@ -65,12 +75,15 @@ export function PlayPage() {
   const router = useRouter();
   const { nick, selectedCarId, tunings, token, isGuest } = useAuth();
 
-  const modeParam = params.get('mode') ?? 'circuit';
-  const roomCode = params.get('room');
-  const createPrivate = params.get('private') === '1';
-  const timetrial = modeParam === 'timetrial';
+  const modeParam = params.get("mode") ?? "circuit";
+  const roomCode = params.get("room");
+  const createPrivate = params.get("private") === "1";
+  const timetrial = modeParam === "timetrial";
   const online =
-    roomCode !== null || modeParam === 'circuit' || modeParam === 'drift' || timetrial;
+    roomCode !== null ||
+    modeParam === "circuit" ||
+    modeParam === "drift" ||
+    timetrial;
 
   const car = useMemo(() => carOrStarter(selectedCarId), [selectedCarId]);
   const tuning = tunings[car.id];
@@ -118,7 +131,7 @@ export function PlayPage() {
   useEffect(() => {
     if (!online) {
       resetGame();
-      useGameStore.getState().setMode('practice');
+      useGameStore.getState().setMode("practice");
       useGameStore.getState().setSpawn(PRACTICE_SPAWN);
       return;
     }
@@ -137,8 +150,8 @@ export function PlayPage() {
     setAttempt((a) => a + 1);
   };
 
-  const ready = spawn !== null && (!online || connection === 'connected');
-  const isHost = mySessionId !== '' && mySessionId === hostId;
+  const ready = spawn !== null && (!online || connection === "connected");
+  const isHost = mySessionId !== "" && mySessionId === hostId;
 
   return (
     <div className="fixed inset-0">
@@ -148,14 +161,14 @@ export function PlayPage() {
           dpr={[1, 1.5]}
           gl={{
             antialias: true,
-            powerPreference: 'high-performance',
+            powerPreference: "high-performance",
             stencil: false,
             depth: true,
           }}
           camera={{ fov: 50, position: [58, 5, -12], near: 0.1, far: 1400 }}
         >
-          <color attach="background" args={['#7eb4e4']} />
-          <fog attach="fog" args={['#a8c4b4', 150, 520]} />
+          <color attach="background" args={["#7eb4e4"]} />
+          <fog attach="fog" args={["#a8c4b4", 150, 520]} />
           <Suspense fallback={null}>
             <Physics timeStep={1 / 60}>
               <GameScene
@@ -173,10 +186,10 @@ export function PlayPage() {
       )}
       <HUD online={online} />
 
-      {timetrial && phase === 'racing' && (
+      {timetrial && phase === "racing" && (
         <Button
           className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2"
-          onClick={() => sessionRef.current?.send('finishTT')}
+          onClick={() => sessionRef.current?.send("finishTT")}
         >
           Encerrar sessão
         </Button>
@@ -184,14 +197,22 @@ export function PlayPage() {
 
       {authRequired && (
         <Overlay>
-          <h2 className="font-display text-3xl font-bold tracking-wide uppercase">Entre para jogar online</h2>
+          <h2 className="font-display text-3xl font-bold tracking-wide uppercase">
+            Entre para jogar online
+          </h2>
           <p className="max-w-md text-muted-foreground">
-            Corrida online, drift e time trial precisam de conta — é o que garante tuning e
-            matchmaking corretos. Convidado só joga o treino livre.
+            Corrida online, drift e time trial precisam de conta — é o que
+            garante tuning e matchmaking corretos. Convidado só joga o treino
+            livre.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Button onClick={() => setAuthOpen(true)}>Entrar / criar conta</Button>
-            <Button variant="outline" onClick={() => router.push('/play?mode=practice')}>
+            <Button onClick={() => setAuthOpen(true)}>
+              Entrar / criar conta
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/play?mode=practice")}
+            >
               Treino livre (offline)
             </Button>
             <Button variant="ghost" asChild>
@@ -201,24 +222,30 @@ export function PlayPage() {
         </Overlay>
       )}
 
-      {online && connection === 'connecting' && (
+      {online && connection === "connecting" && (
         <Overlay>
           <div className="size-10 animate-spin rounded-full border-2 border-white/20 border-t-primary" />
-          <h2 className="font-display text-3xl font-bold tracking-wide uppercase">Conectando ao servidor...</h2>
+          <h2 className="font-display text-3xl font-bold tracking-wide uppercase">
+            Conectando ao servidor...
+          </h2>
           <p className="max-w-md text-muted-foreground">
-            Se o servidor estava dormindo (plano gratuito), a primeira conexão pode levar até um
-            minuto. Segura o volante aí.
+            A primeira conexão pode levar até um minuto. Segura o volante aí.
           </p>
         </Overlay>
       )}
 
-      {online && connection === 'error' && (
+      {online && connection === "error" && (
         <Overlay>
-          <h2 className="font-display text-3xl font-bold tracking-wide uppercase">Não deu pra conectar</h2>
+          <h2 className="font-display text-3xl font-bold tracking-wide uppercase">
+            Não deu pra conectar
+          </h2>
           <p className="text-muted-foreground">{connectionError}</p>
           <div className="flex flex-wrap justify-center gap-3">
             <Button onClick={retry}>Tentar de novo</Button>
-            <Button variant="outline" onClick={() => router.push('/play?mode=practice')}>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/play?mode=practice")}
+            >
               Treino livre (offline)
             </Button>
             <Button variant="ghost" asChild>
@@ -228,14 +255,20 @@ export function PlayPage() {
         </Overlay>
       )}
 
-      {online && connection === 'connected' && phase === 'lobby' && (
+      {online && connection === "connected" && phase === "lobby" && (
         <Overlay transparent={!isPrivate}>
           {isPrivate ? (
             <div className="pointer-events-auto flex flex-col items-center gap-4">
-              <h2 className="font-display text-3xl font-bold tracking-wide uppercase">Sala privada</h2>
-              <p className="text-muted-foreground">Passe o código para os amigos:</p>
+              <h2 className="font-display text-3xl font-bold tracking-wide uppercase">
+                Sala privada
+              </h2>
+              <p className="text-muted-foreground">
+                Passe o código para os amigos:
+              </p>
               <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-card px-4 py-2.5">
-                <code className="font-mono text-2xl font-bold tracking-widest text-primary">{roomId}</code>
+                <code className="font-mono text-2xl font-bold tracking-widest text-primary">
+                  {roomId}
+                </code>
                 <Button
                   size="sm"
                   onClick={() => {
@@ -244,13 +277,17 @@ export function PlayPage() {
                     setTimeout(() => setCopied(false), 1500);
                   }}
                 >
-                  {copied ? 'Copiado!' : 'Copiar'}
+                  {copied ? "Copiado!" : "Copiar"}
                 </Button>
               </div>
               {isHost ? (
-                <Button onClick={() => sessionRef.current?.send('start')}>Começar corrida</Button>
+                <Button onClick={() => sessionRef.current?.send("start")}>
+                  Começar corrida
+                </Button>
               ) : (
-                <p className="text-muted-foreground">Aguardando o anfitrião dar a largada...</p>
+                <p className="text-muted-foreground">
+                  Aguardando o anfitrião dar a largada...
+                </p>
               )}
             </div>
           ) : (
@@ -266,7 +303,9 @@ export function PlayPage() {
           <Card className="pointer-events-auto w-full max-w-lg border-white/10 bg-card/95">
             <CardHeader>
               <CardTitle className="font-display text-2xl tracking-wide uppercase">
-                {results.mode === 'drift' ? 'Resultado do Drift' : 'Resultado da corrida'}
+                {results.mode === "drift"
+                  ? "Resultado do Drift"
+                  : "Resultado da corrida"}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -275,7 +314,9 @@ export function PlayPage() {
                   <TableRow>
                     <TableHead>#</TableHead>
                     <TableHead>Piloto</TableHead>
-                    <TableHead>{results.mode === 'drift' ? 'Pontos' : 'Tempo'}</TableHead>
+                    <TableHead>
+                      {results.mode === "drift" ? "Pontos" : "Tempo"}
+                    </TableHead>
                     <TableHead>Moedas</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -283,12 +324,16 @@ export function PlayPage() {
                   {results.entries.map((e) => (
                     <TableRow
                       key={e.sessionId}
-                      className={e.sessionId === mySessionId ? 'outline outline-2 outline-primary' : undefined}
+                      className={
+                        e.sessionId === mySessionId
+                          ? "outline outline-2 outline-primary"
+                          : undefined
+                      }
                     >
                       <TableCell>{e.position}</TableCell>
                       <TableCell>
                         {e.nick}
-                        {e.sessionId === mySessionId ? ' (você)' : ''}
+                        {e.sessionId === mySessionId ? " (você)" : ""}
                       </TableCell>
                       <TableCell>{fmtMetric(results.mode, e.metric)}</TableCell>
                       <TableCell>+{e.coins}</TableCell>
@@ -298,8 +343,8 @@ export function PlayPage() {
               </Table>
               {isGuest && (
                 <p className="mt-3 text-sm text-primary">
-                  Você está como convidado — crie uma conta na página inicial para guardar essas
-                  moedas.
+                  Você está como convidado — crie uma conta na página inicial
+                  para guardar essas moedas.
                 </p>
               )}
               <div className="mt-4 flex justify-center gap-3">

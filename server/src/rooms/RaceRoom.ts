@@ -60,7 +60,8 @@ interface PlayerRuntime {
   profileId: string | null;
   /** vel. máx efetiva (carro + tuning REAL do banco) p/ validação */
   maxSpeedKmh: number;
-  lastMsgAt: number;
+  /** timestamp da última posição aceita (lastValid) — base do dt anti-teleporte */
+  lastValidAt: number;
   lastValid: { x: number; y: number; z: number; qx: number; qy: number; qz: number; qw: number };
   violations: number;
   lapStartMs: number;
@@ -162,7 +163,7 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     this.runtime.set(client.sessionId, {
       profileId,
       maxSpeedKmh: effectiveSpec(car, tuning ?? undefined).maxSpeedKmh,
-      lastMsgAt: 0,
+      lastValidAt: now(),
       lastValid: { x: p.x, y: p.y, z: p.z, qx: 0, qy: p.qy, qz: 0, qw: p.qw },
       violations: 0,
       lapStartMs: 0,
@@ -197,12 +198,12 @@ export class RaceRoom extends Room<{ state: RaceState }> {
     if (vals.some((v) => typeof v !== 'number' || !Number.isFinite(v))) return;
 
     const t = now();
-    const dt = rt.lastMsgAt
-      ? Math.min((t - rt.lastMsgAt) / 1000, NET.maxStateDeltaS)
-      : 1 / NET.stateSendHz;
-    rt.lastMsgAt = t;
-
-    // anti-teleporte: deslocamento máximo plausível p/ carro+tuning no intervalo
+    // anti-teleporte: deslocamento máximo plausível p/ carro+tuning desde a
+    // ÚLTIMA POSIÇÃO ACEITA (não desde a última mensagem — se uma mensagem é
+    // rejeitada, a distância continua sendo medida a partir de lastValid, e
+    // usar um dt de "1 intervalo" ali subestimaria a distância permitida,
+    // causando rejeição em cadeia por uma única mensagem ruidosa).
+    const dt = Math.min((t - rt.lastValidAt) / 1000, NET.maxStateDeltaS);
     const maxKmh = rt.maxSpeedKmh;
     const maxDist = (maxKmh / 3.6) * NET.speedValidationMargin * dt + 0.5;
     const dx = msg.x - rt.lastValid.x;
@@ -216,6 +217,7 @@ export class RaceRoom extends Room<{ state: RaceState }> {
       return;
     }
 
+    rt.lastValidAt = t;
     rt.lastValid = { x: msg.x, y: msg.y, z: msg.z, qx: msg.qx, qy: msg.qy, qz: msg.qz, qw: msg.qw };
     p.x = msg.x;
     p.y = msg.y;
