@@ -5,6 +5,10 @@ const nextConfig = {
   // "Module parse failed: Unexpected token" em qualquer import de @shared/*.
   experimental: {
     externalDir: true,
+    // reduz pico de memória do build (troca velocidade por RAM) — bundle
+    // pesado (three.js/rapier/colyseus) estoura a build machine free da Vercel.
+    webpackMemoryOptimizations: true,
+    cpus: 1,
   },
 };
 
