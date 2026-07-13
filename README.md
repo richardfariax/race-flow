@@ -9,14 +9,16 @@ Jogo de corrida multiplayer cartoon, 100% no navegador. Física de veículo via 
 - [x] Drift Challenge (2min, pontuação ângulo × velocidade × tempo com combo) — pontuado **no servidor**
 - [x] Checkpoints, voltas e resultado decididos no servidor; anti-teleporte/velocidade com `correction`
 - [x] Contas (Supabase Auth) + modo convidado sem atrito; landing page com "Jogar agora"
-- [x] Loja/garagem: 3 carros (classes C/B/A) com física real distinta; compra via RPC validada no banco
+- [x] Garagem: 7 carros reais (Fusca, Golf GTI, Jetta, M3 E46, Skyline R34, Supra A90, M4 G82), todos liberados; física e escala por modelo; tuning local ou via RPC
 - [x] Leaderboard simples (melhor tempo por piloto) na landing
-- [x] **Fase 2 (parcial)**: tuning de performance (6 categorias com trade-offs, muda a física de verdade), PR + matchmaking por classe (servidor recalcula do banco e expulsa classe mentida), lobby privado por código com largada do anfitrião
-- [ ] Fase 2 (restante): Time Trial + ghost, desafios diários, amigos, livery/cosméticos
+- [x] **Fase 2**: tuning de performance (6 categorias), PR + matchmaking por classe, lobby privado por código, **Time Trial + ghost**, **desafios diários** (resgate validado no banco), **amigos** (seguir pelo ranking), **livery/cosméticos** (pintura por carro)
+- [x] **Polimento de feel**: física anti-capotamento/anti-empinada, carros com paralamas/faróis/spoiler, áudio (motor/freio/derrapagem), fumaça de pneu, pista redesenhada com zebras e cenário
 
 ### Modelo de física do carro (pós-playtest)
 
-Tração traseira limitada por μ×carga no eixo: pedir mais força do que o pneu segura não empina — **patina** (burnout na arrancada, giro visual extra, traseira levemente solta). Centro de massa rebaixado por lastro no chassi. Grip lateral no padrão do raycast vehicle (`frictionSlip` ≈ 10.5 — valores baixos fazem o carro "arar" reto): curvas normais têm direção normal; **drift é deliberado**, via freio de mão (derruba o grip lateral traseiro) ou powerslide de aceleração.
+Tração traseira limitada por μ×carga no eixo: pedir mais força do que o pneu segura não empina — **patina** (burnout na arrancada, giro visual extra, traseira levemente solta). Centro de massa rebaixado por lastro no assoalho + **assistência de estabilidade PD** (torque corretivo só no eixo horizontal — rolagem/arfagem — sem tocar no yaw): impede o carro de capotar ao tirar o acelerador em curva e de empinar pra frente na freada, **sem** matar o drift. Grip lateral no padrão do raycast vehicle (`frictionSlip` ≈ 10.5): curvas normais têm direção normal; **drift é deliberado**, via freio de mão (derruba o grip lateral traseiro) ou powerslide de aceleração.
+
+> ⚠️ Os ganhos `stabP`/`stabD`, damping e o novo traçado seguem a referência do raycast vehicle mas **precisam do seu playtest** (o sandbox não tem WebGL). Ajuste `BASE.stabP/stabD` em `web/src/game/Vehicle.tsx` se ficar rígido/mole demais.
 
 ## Estrutura
 
@@ -77,8 +79,9 @@ Cliente simula o próprio carro (Rapier local = predição imediata, sem input l
 
 ## Não testado (declarado)
 
-- Gameplay 3D em runtime (sandbox sem WebGL): os novos valores de grip/tração/lastro seguem a referência do raycast vehicle, mas precisam de playtest seu — me diga como ficou a sensação de curva/drift.
-- RPC `upgrade_car` num Supabase real (validada por leitura; se você já aplicou o schema antes, rode só o bloco novo `upgrade_car` no SQL Editor).
+- Gameplay 3D em runtime (sandbox sem WebGL): física (capotamento/empinada/freio de mão), carros novos, áudio, fumaça e o novo traçado compilam e seguem a referência, mas precisam de playtest seu — me diga como ficou a sensação de curva/drift/som.
+- **Bloco novo `-- FASE 2 --` em `supabase/schema.sql`** (aceitar `timetrial` em `race_results`, `claim_daily`, `friendships`/`add_friend`): idempotente, mas **precisa ser rodado no SQL Editor** de um projeto real. Sem ele, resultados de Time Trial quebram o crédito e Desafios/Amigos ficam com erro na UI (que degrada com elegância).
+- RPC `upgrade_car`/`claim_daily`/`add_friend` num Supabase real (validadas por leitura, não por execução).
 - Fluxo Supabase real (signup → trigger de perfil → compra → crédito pós-corrida): schema não foi aplicado num projeto real; RPCs/RLS validados por leitura, não por execução.
 - Deploy Vercel/Render (precisa das suas contas).
 - Mobile/touch (input abstraído, implementação touch é Fase 2) e gamepad.
