@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import { NET } from "@shared/protocol";
 import { TRACK } from "@shared/track";
 import { useGameStore } from "../state/gameStore";
@@ -159,7 +159,7 @@ export function HUD({ online }: { online: boolean }) {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Link
-            to="/"
+            href="/"
             style={{
               pointerEvents: "auto",
               textDecoration: "none",

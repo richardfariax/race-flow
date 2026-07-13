@@ -1,5 +1,8 @@
+'use client';
+
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import type { GameMode } from '@shared/protocol';
@@ -57,8 +60,8 @@ function Overlay({
 }
 
 export function PlayPage() {
-  const [params] = useSearchParams();
-  const navigate = useNavigate();
+  const params = useSearchParams();
+  const router = useRouter();
   const { nick, selectedCarId, tunings, token, isGuest } = useAuth();
 
   const modeParam = params.get('mode') ?? 'circuit';
@@ -188,11 +191,11 @@ export function PlayPage() {
           <p className="text-muted-foreground">{connectionError}</p>
           <div className="flex flex-wrap justify-center gap-3">
             <Button onClick={retry}>Tentar de novo</Button>
-            <Button variant="outline" onClick={() => navigate('/play?mode=practice')}>
+            <Button variant="outline" onClick={() => router.push('/play?mode=practice')}>
               Treino livre (offline)
             </Button>
             <Button variant="ghost" asChild>
-              <Link to="/">Voltar</Link>
+              <Link href="/">Voltar</Link>
             </Button>
           </div>
         </Overlay>
@@ -275,7 +278,7 @@ export function PlayPage() {
               <div className="mt-4 flex justify-center gap-3">
                 <Button onClick={retry}>Correr de novo</Button>
                 <Button variant="outline" asChild>
-                  <Link to="/">Menu</Link>
+                  <Link href="/">Menu</Link>
                 </Button>
               </div>
             </CardContent>

@@ -1,5 +1,8 @@
+'use client';
+
 import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { CARS } from '@shared/cars';
 import {
   TUNE_CATEGORIES,
@@ -63,7 +66,7 @@ function SiteShell({ children }: { children: ReactNode }) {
 }
 
 export function GaragePage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { profile, tunings, selectedCarId, isGuest, upgradeCar, selectCar } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -113,7 +116,7 @@ export function GaragePage() {
       <main className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-16 sm:px-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <Link to="/" className="mb-1 inline-block text-sm text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/" className="mb-1 inline-block text-sm text-muted-foreground transition-colors hover:text-foreground">
               ← Início
             </Link>
             <h1 className="font-display text-[clamp(2rem,4vw,2.6rem)] font-bold tracking-[0.03em] uppercase">
@@ -124,7 +127,7 @@ export function GaragePage() {
             <span className="text-sm text-muted-foreground">
               {isGuest ? 'Modo local · todos liberados' : `${profile?.coins ?? 0} moedas`}
             </span>
-            <Button size="sm" onClick={() => navigate('/play?mode=circuit')}>
+            <Button size="sm" onClick={() => router.push('/play?mode=circuit')}>
               Ir para pista
             </Button>
           </div>

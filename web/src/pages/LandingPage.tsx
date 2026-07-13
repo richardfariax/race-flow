@@ -1,5 +1,7 @@
+'use client';
+
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { AuthModal } from '../ui/AuthModal';
@@ -66,7 +68,7 @@ function SiteShell({ children }: { children: ReactNode }) {
 }
 
 export function LandingPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { session } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const [lb, setLb] = useState<LbRow[]>([]);
@@ -102,10 +104,10 @@ export function LandingPage() {
               guardar progresso, tuning e pintura.
             </p>
             <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
-              <Button size="lg" className="h-12 px-8 text-base" onClick={() => navigate('/play?mode=circuit')}>
+              <Button size="lg" className="h-12 px-8 text-base" onClick={() => router.push('/play?mode=circuit')}>
                 Jogar agora
               </Button>
-              <Button size="lg" variant="outline" className="h-12 px-8 text-base" onClick={() => navigate('/garage')}>
+              <Button size="lg" variant="outline" className="h-12 px-8 text-base" onClick={() => router.push('/garage')}>
                 Garagem
               </Button>
             </div>
@@ -117,7 +119,7 @@ export function LandingPage() {
                     variant="ghost"
                     size="sm"
                     className="text-muted-foreground"
-                    onClick={() => navigate(`/play?mode=${m.id}`)}
+                    onClick={() => router.push(`/play?mode=${m.id}`)}
                   >
                     {m.label}
                   </Button>
@@ -141,7 +143,7 @@ export function LandingPage() {
                   <CardDescription className="text-sm leading-relaxed">{mode.desc}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button size="sm" variant="ghost" onClick={() => navigate(`/play?mode=${mode.id}`)}>
+                  <Button size="sm" variant="ghost" onClick={() => router.push(`/play?mode=${mode.id}`)}>
                     Jogar
                   </Button>
                 </CardContent>
@@ -157,10 +159,10 @@ export function LandingPage() {
               <CardDescription>Crie uma sala privada, compartilhe o código e controle a largada.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => navigate('/play?mode=circuit&private=1')}>
+              <Button size="sm" onClick={() => router.push('/play?mode=circuit&private=1')}>
                 Corrida privada
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => navigate('/play?mode=drift&private=1')}>
+              <Button size="sm" variant="ghost" onClick={() => router.push('/play?mode=drift&private=1')}>
                 Drift privado
               </Button>
             </CardContent>
@@ -175,10 +177,10 @@ export function LandingPage() {
               <Input
                 value={code}
                 onChange={(e) => setCode(e.target.value.trim())}
-                onKeyDown={(e) => e.key === 'Enter' && code && navigate(`/play?room=${code}`)}
+                onKeyDown={(e) => e.key === 'Enter' && code && router.push(`/play?room=${code}`)}
                 placeholder="Código da sala"
               />
-              <Button size="default" disabled={!code} onClick={() => navigate(`/play?room=${code}`)}>
+              <Button size="default" disabled={!code} onClick={() => router.push(`/play?room=${code}`)}>
                 Entrar
               </Button>
             </CardContent>

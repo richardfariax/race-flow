@@ -10,7 +10,7 @@ import { pushSnap, pruneBuffers, remoteBuffers } from './remoteBuffer';
  * O carro local é predição; o servidor valida e pode mandar 'correction'.
  */
 
-const SERVER_URL = (import.meta.env.VITE_GAME_SERVER_URL as string | undefined) ?? 'ws://localhost:2567';
+const SERVER_URL = process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? 'ws://localhost:2567';
 
 export interface JoinRequest {
   nick: string;

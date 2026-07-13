@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { useAuth } from '../lib/auth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -18,14 +18,14 @@ export function SiteNav({ onAuthClick, variant = 'landing' }: SiteNavProps) {
         variant === 'landing' && 'sticky top-0 bg-background/70 backdrop-blur-md',
       )}
     >
-      <Link to="/" className="flex items-center gap-2.5 font-display text-lg font-bold tracking-[0.04em] uppercase">
+      <Link href="/" className="flex items-center gap-2.5 font-display text-lg font-bold tracking-[0.04em] uppercase">
         <span className="size-2.5 rounded-sm bg-primary" aria-hidden />
         Race Flow
       </Link>
 
       <nav className="flex items-center gap-3 sm:gap-4">
         <Link
-          to="/garage"
+          href="/garage"
           className="text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           Garagem
