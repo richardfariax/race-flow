@@ -30,19 +30,40 @@ export function toonMaterial(color: string): THREE.MeshToonMaterial {
   return mat;
 }
 
+let vertexMat: THREE.MeshToonMaterial | null = null;
+
+/** Material toon que usa cor por vértice (p/ zebras vermelho/branco). */
+export function toonVertexMaterial(): THREE.MeshToonMaterial {
+  if (!vertexMat) {
+    vertexMat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: getGradientMap() });
+  }
+  return vertexMat;
+}
+
 /** Paleta do jogo — vibrante/cartoon */
 export const PALETTE = {
   carBody: '#ff6b35',
   carAccent: '#2ec4b6',
   carDark: '#22223b',
-  wheel: '#2b2d42',
+  wheel: '#181820',
+  tire: '#181820',
+  rim: '#d7d9e0',
+  rimDark: '#8a8d99',
   wheelHub: '#ffd166',
+  glass: '#141a2e',
+  headlight: '#fff6cc',
+  taillight: '#ff2e46',
+  chrome: '#c8ccd6',
   grass: '#7ac74f',
   grassDark: '#5da03f',
-  asphalt: '#4a4e69',
+  asphalt: '#3c3f57',
+  asphaltEdge: '#2c2e40',
   curbRed: '#ef476f',
   curbWhite: '#f8f9fa',
+  kerbYellow: '#ffd166',
   ramp: '#9b5de5',
   cone: '#ff9f1c',
   crate: '#c9a227',
+  runoff: '#b06a4a',
+  sand: '#d9c48a',
 } as const;
