@@ -19,10 +19,53 @@ export interface DriveSimState {
   shiftCooldown: number;
   shiftTimer: number;
   shifting: boolean;
+  /** offset atual da lenta (rpm) — random walk com mean-reversion */
+  idleOffset: number;
 }
 
 export function createDriveState(idleRpm = 800): DriveSimState {
-  return { gearIndex: 0, engineRpm: idleRpm, shiftCooldown: 0, shiftTimer: 0, shifting: false };
+  return {
+    gearIndex: 0,
+    engineRpm: idleRpm,
+    shiftCooldown: 0,
+    shiftTimer: 0,
+    shifting: false,
+    idleOffset: (Math.random() * 2 - 1) * 12,
+  };
+}
+
+/** Margem realista de oscilação da lenta (± rpm) */
+const IDLE_HUNT_AMP = 36;
+/** Intensidade do ruído (rpm · s^-0.5) */
+const IDLE_HUNT_NOISE = 48;
+/** Puxa de volta ao nominal */
+const IDLE_HUNT_PULL = 1.85;
+
+function stepIdleOffset(offset: number, dtSec: number): number {
+  const noise = (Math.random() * 2 - 1) * IDLE_HUNT_NOISE * Math.sqrt(Math.max(dtSec, 1e-4));
+  let next = offset + noise - offset * IDLE_HUNT_PULL * dtSec;
+  // micro-tremores irregulares (como um motor frio / ECU caçando)
+  if (Math.random() < dtSec * 1.4) {
+    next += (Math.random() * 2 - 1) * (6 + Math.random() * 10);
+  }
+  return Math.max(-IDLE_HUNT_AMP, Math.min(IDLE_HUNT_AMP, next));
+}
+
+export function idleHuntTarget(idleRpm: number, idleOffset: number): number {
+  return idleRpm + idleOffset;
+}
+
+/** Avança o hunt e devolve o alvo de lenta (p/ ré / freio no cliente). */
+export function nextIdleTarget(
+  state: DriveSimState,
+  idleRpm: number,
+  dtSec: number,
+): { state: DriveSimState; rpm: number } {
+  const idleOffset = stepIdleOffset(state.idleOffset, dtSec);
+  return {
+    state: { ...state, idleOffset },
+    rpm: idleHuntTarget(idleRpm, idleOffset),
+  };
 }
 
 export interface DriveOutput {
@@ -150,7 +193,9 @@ export function stepDrivetrain(opts: {
 
   if (absSpeed < 0.25 && throttle < 0.04) {
     st.gearIndex = 0;
-    st.engineRpm = lerp(st.engineRpm, dt.idleRpm, dtSec * 8);
+    st.idleOffset = stepIdleOffset(st.idleOffset, dtSec);
+    const idleTarget = idleHuntTarget(dt.idleRpm, st.idleOffset);
+    st.engineRpm = lerp(st.engineRpm, idleTarget, dtSec * 10);
     return {
       state: st,
       output: {
@@ -207,6 +252,9 @@ export function stepDrivetrain(opts: {
   const coupling = clamp(absSpeed / LAUNCH_COUPLING_SPEED, 0, 1);
   const launchTarget = dt.idleRpm + throttle * (dt.redlineRpm - dt.idleRpm) * 0.92;
 
+  st.idleOffset = stepIdleOffset(st.idleOffset, dtSec);
+  const idleTarget = idleHuntTarget(dt.idleRpm, st.idleOffset);
+
   if (throttle > 0.04 && coupling < 0.98) {
     const revTarget = Math.max(launchTarget, coupledNow);
     st.engineRpm += (revTarget - st.engineRpm) * clamp(REV_RATE * dtSec / Math.max(400, revTarget), 0, 1);
@@ -214,11 +262,11 @@ export function stepDrivetrain(opts: {
   } else if (throttle > 0.04) {
     st.engineRpm = lerp(st.engineRpm, coupledNow, dtSec * 14);
   } else {
-    const coastTarget = Math.max(dt.idleRpm, coupledNow * 0.92);
+    const coastTarget = Math.max(idleTarget, coupledNow * 0.92);
     st.engineRpm = lerp(st.engineRpm, coastTarget, dtSec * 6);
   }
 
-  st.engineRpm = clamp(st.engineRpm, dt.idleRpm * 0.7, dt.redlineRpm * 1.02);
+  st.engineRpm = clamp(st.engineRpm, dt.idleRpm * 0.65, dt.redlineRpm * 1.02);
 
   let wheelForce = 0;
   if (throttle > 0.01) {

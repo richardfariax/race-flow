@@ -10,8 +10,16 @@ import {
 } from '@react-three/rapier';
 import type { DynamicRayCastVehicleController } from '@dimforge/rapier3d-compat';
 import type { CarSpec } from '@shared/cars';
+import { carBoostBarMax } from '@shared/cars';
 import { effectiveSpec, type Tuning } from '@shared/tuning';
-import { createDriveState, stepDrivetrain, speedDragForce, reverseRpmFromSpeed, type DriveSimState } from '@shared/drivetrain';
+import {
+  createDriveState,
+  stepDrivetrain,
+  speedDragForce,
+  reverseRpmFromSpeed,
+  nextIdleTarget,
+  type DriveSimState,
+} from '@shared/drivetrain';
 import { rapierServiceBrakes, rapierHandbrakeRear } from '@shared/braking';
 import { resolveVehicleDrive, type VehicleDriveMode } from '@shared/vehicleDrive';
 import { heightAt, isOnDriveable, isOnRoad, surfaceAt } from '@shared/track';
@@ -272,9 +280,12 @@ export function Vehicle({
   const slideMomentumRef = useRef(0);
   const rearLockSpinRef = useRef<[number, number]>([0, 0]);
   const driveModeRef = useRef<VehicleDriveMode>('coast');
+  const boostRef = useRef(0);
+  const boostMaxRef = useRef(0);
   const { world } = useRapier();
   const setCluster = useHudStore((s) => s.setCluster);
   const setRedlineRpm = useHudStore((s) => s.setRedlineRpm);
+  const setBoostMax = useHudStore((s) => s.setBoostMax);
   const parts = useCarParts(car.id, bodyColor ?? car.colors.body);
 
   useEffect(() => {
@@ -307,8 +318,18 @@ export function Vehicle({
 
   useEffect(() => {
     setRedlineRpm(phys.drivetrain.redlineRpm);
+    const boostMax = carBoostBarMax(car.id);
+    boostMaxRef.current = boostMax;
+    boostRef.current = 0;
+    setBoostMax(boostMax);
     driveStateRef.current = createDriveState(phys.drivetrain.idleRpm);
-  }, [phys.drivetrain.redlineRpm, phys.drivetrain.idleRpm, car.id, setRedlineRpm]);
+  }, [
+    phys.drivetrain.redlineRpm,
+    phys.drivetrain.idleRpm,
+    car.id,
+    setRedlineRpm,
+    setBoostMax,
+  ]);
 
   const spawnQuat = new THREE.Quaternion().setFromAxisAngle(UP, spawn.yaw);
 
@@ -490,15 +511,19 @@ export function Vehicle({
       gearRef.current = driven.output.gear;
       shiftingRef.current = driven.output.shifting;
     } else if (intent.mode === 'reverse') {
+      const idle = nextIdleTarget(driveStateRef.current, phys.drivetrain.idleRpm, dt);
+      driveStateRef.current = idle.state;
       rpmRef.current = Math.max(
-        phys.drivetrain.idleRpm,
+        idle.rpm,
         reverseRpmFromSpeed(speed, geo.wheelRadius, phys.drivetrain.finalDrive),
       );
       gearRef.current = -1;
       shiftingRef.current = false;
     } else if (intent.mode === 'brake') {
+      const idle = nextIdleTarget(driveStateRef.current, phys.drivetrain.idleRpm, dt);
+      driveStateRef.current = idle.state;
       rpmRef.current = Math.max(
-        phys.drivetrain.idleRpm,
+        idle.rpm,
         rpmRef.current - phys.drivetrain.redlineRpm * 0.35 * dt,
       );
       shiftingRef.current = false;
@@ -937,6 +962,32 @@ export function Vehicle({
     brakeActiveRef.current = (braking || hbActive) && absSpeed > 2;
     throttleMagRef.current = Math.abs(throttle);
 
+    const boostMax = boostMaxRef.current;
+    if (boostMax > 0) {
+      const idle = phys.drivetrain.idleRpm;
+      const redline = phys.drivetrain.redlineRpm;
+      const rpmNorm = THREE.MathUtils.clamp(
+        (rpmRef.current - idle) / Math.max(1, redline - idle),
+        0,
+        1,
+      );
+      const thr = Math.max(0, throttle);
+      const spool = THREE.MathUtils.clamp((rpmNorm - 0.1) / 0.5, 0, 1);
+      let target = thr * spool * boostMax;
+      if (shiftingRef.current) target *= 0.55;
+      if (brakePedalRef.current > 0.2) target *= 0.35;
+      // lag de turbina: sobe mais rápido que desce
+      const rate = thr > 0.08 && spool > 0.05 ? 3.8 : 1.6;
+      boostRef.current += (target - boostRef.current) * Math.min(1, rate * dt);
+      // flutter leve perto do wastegate
+      if (boostRef.current > boostMax * 0.92 && thr > 0.7) {
+        boostRef.current += (Math.random() * 2 - 1) * 0.015;
+      }
+      boostRef.current = THREE.MathUtils.clamp(boostRef.current, 0, boostMax * 1.02);
+    } else {
+      boostRef.current = 0;
+    }
+
     tmpVec.copy(UP).applyQuaternion(tmpQuat);
     const upsideDown = tmpVec.y < 0.15 && Math.abs(speed) < 2;
     flipTimerRef.current = upsideDown ? flipTimerRef.current + dt : 0;
@@ -956,6 +1007,7 @@ export function Vehicle({
       rpm: rpmRef.current,
       gear: gearRef.current,
       shifting: shiftingRef.current,
+      boostBar: boostRef.current,
     });
 
     const rot = chassis.rotation();

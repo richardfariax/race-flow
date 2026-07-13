@@ -1,9 +1,9 @@
-import { useHudStore } from "../state/hudStore";
+import { useHudStore } from '../state/hudStore';
 
-const SIZE = 280;
+const SIZE = 268;
 const CX = SIZE / 2;
-const CY = SIZE / 2 + 8;
-const R = 108;
+const CY = SIZE / 2 + 6;
+const R = 102;
 const START = 135;
 const SWEEP = 270;
 
@@ -34,87 +34,79 @@ export function Tachometer() {
   const redStart = rpmToDeg(redlineRpm * 0.82, redlineRpm);
   const redEnd = START + SWEEP;
   const needleDeg = rpmToDeg(rpm, redlineRpm);
-  const needle = polar(needleDeg, R - 18);
+  const needle = polar(needleDeg, R - 16);
 
-  const majorStep = redlineRpm <= 5000 ? 1000 : 1000;
+  const majorStep = 1000;
   const ticks: { deg: number; label: string; major: boolean }[] = [];
   for (let v = 0; v <= redlineRpm; v += majorStep) {
-    const deg = rpmToDeg(v, redlineRpm);
-    const thousands = v / 1000;
     ticks.push({
-      deg,
-      label: v % 1000 === 0 ? String(thousands) : "",
+      deg: rpmToDeg(v, redlineRpm),
+      label: String(v / 1000),
       major: true,
     });
     if (v + majorStep / 2 <= redlineRpm) {
       ticks.push({
         deg: rpmToDeg(v + majorStep / 2, redlineRpm),
-        label: "",
+        label: '',
         major: false,
       });
     }
   }
-  if (redlineRpm % majorStep !== 0) {
-    ticks.push({
-      deg: rpmToDeg(redlineRpm, redlineRpm),
-      label: (redlineRpm / 1000).toFixed(1).replace(/\.0$/, ""),
-      major: true,
-    });
-  }
 
-  const gearLabel = gear < 0 ? "R" : gear === 0 ? "N" : String(gear);
-  const rpmDisplay = Math.round(rpm);
+  const gearLabel = gear < 0 ? 'R' : gear === 0 ? 'N' : String(gear);
+  const rpmDisplay = Math.round(rpm).toLocaleString('pt-BR');
 
   return (
     <div
       style={{
-        position: "absolute",
-        bottom: 16,
-        right: 16,
+        position: 'relative',
         width: SIZE,
         height: SIZE,
-        filter: "drop-shadow(0 8px 24px rgba(0,0,0,0.55))",
+        filter: 'drop-shadow(0 10px 28px rgba(0,0,0,0.55))',
       }}
     >
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
         <defs>
           <linearGradient id="tachFace" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="rgba(18,20,28,0.92)" />
-            <stop offset="100%" stopColor="rgba(8,10,16,0.96)" />
-          </linearGradient>
-          <linearGradient id="needleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ff6b35" />
-            <stop offset="100%" stopColor="#ffd166" />
+            <stop offset="0%" stopColor="rgba(22,24,32,0.94)" />
+            <stop offset="100%" stopColor="rgba(6,8,14,0.98)" />
           </linearGradient>
         </defs>
 
         <circle
           cx={CX}
           cy={CY}
-          r={R + 22}
+          r={R + 20}
           fill="url(#tachFace)"
-          stroke="rgba(255,255,255,0.08)"
+          stroke="rgba(255,255,255,0.1)"
           strokeWidth="1.5"
+        />
+        <circle
+          cx={CX}
+          cy={CY}
+          r={R + 14}
+          fill="none"
+          stroke="rgba(255,255,255,0.04)"
+          strokeWidth="8"
         />
         <path
           d={arcPath(START, START + SWEEP, R)}
           fill="none"
-          stroke="rgba(255,255,255,0.12)"
-          strokeWidth="10"
+          stroke="rgba(255,255,255,0.14)"
+          strokeWidth="9"
           strokeLinecap="round"
         />
         <path
           d={arcPath(redStart, redEnd, R)}
           fill="none"
-          stroke="rgba(220,40,40,0.75)"
-          strokeWidth="10"
-          strokeLinecap="butt"
+          stroke="rgba(220,40,40,0.8)"
+          strokeWidth="9"
         />
 
         {ticks.map((t, i) => {
-          const inner = polar(t.deg, R - (t.major ? 14 : 8));
+          const inner = polar(t.deg, R - (t.major ? 13 : 7));
           const outer = polar(t.deg, R + 2);
-          const lbl = polar(t.deg, R - 28);
+          const lbl = polar(t.deg, R - 26);
           return (
             <g key={i}>
               <line
@@ -122,9 +114,7 @@ export function Tachometer() {
                 y1={inner.y}
                 x2={outer.x}
                 y2={outer.y}
-                stroke={
-                  t.major ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.35)"
-                }
+                stroke={t.major ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.32)'}
                 strokeWidth={t.major ? 2 : 1}
               />
               {t.label && (
@@ -133,10 +123,10 @@ export function Tachometer() {
                   y={lbl.y}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fill="rgba(255,255,255,0.7)"
-                  fontSize="11"
-                  fontWeight="600"
-                  fontFamily="system-ui, sans-serif"
+                  fill="rgba(255,255,255,0.72)"
+                  fontSize="12"
+                  fontWeight="700"
+                  fontFamily="Barlow Condensed, Inter, sans-serif"
                 >
                   {t.label}
                 </text>
@@ -144,97 +134,122 @@ export function Tachometer() {
             </g>
           );
         })}
+      </svg>
+
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '44%',
+            transform: 'translate(-50%, -50%)',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              fontSize: 54,
+              fontWeight: 900,
+              lineHeight: 1,
+              color: shifting ? '#f15bb5' : '#fff',
+              fontVariantNumeric: 'tabular-nums',
+              fontFamily: 'Barlow Condensed, Inter, sans-serif',
+              textShadow: '0 2px 10px rgba(0,0,0,0.85)',
+              letterSpacing: 1,
+            }}
+          >
+            {gearLabel}
+          </div>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: 'rgba(255,255,255,0.42)',
+              letterSpacing: 2,
+              marginTop: 50,
+              fontFamily: 'Barlow Condensed, Inter, sans-serif',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {rpmDisplay} RPM
+          </div>
+        </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            bottom: 26,
+            transform: 'translateX(-50%)',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              fontSize: 42,
+              fontWeight: 900,
+              lineHeight: 1,
+              color: '#fff',
+              fontVariantNumeric: 'tabular-nums',
+              fontFamily: 'Barlow Condensed, Inter, sans-serif',
+              textShadow: '0 2px 10px rgba(0,0,0,0.85)',
+            }}
+          >
+            {speedKmh}
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: 'rgba(255,255,255,0.5)',
+              letterSpacing: 3,
+              marginTop: 2,
+              fontFamily: 'Barlow Condensed, Inter, sans-serif',
+            }}
+          >
+            KM/H
+          </div>
+        </div>
+      </div>
+
+      {/* Ponteiro sempre no topo — acima da marcha e da velocidade */}
+      <svg
+        width={SIZE}
+        height={SIZE}
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+      >
+        <defs>
+          <linearGradient id="needleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#ff6b35" />
+            <stop offset="100%" stopColor="#ffd166" />
+          </linearGradient>
+        </defs>
         <line
           x1={CX}
           y1={CY}
           x2={needle.x}
           y2={needle.y}
           stroke="url(#needleGrad)"
-          strokeWidth="3"
+          strokeWidth="3.2"
           strokeLinecap="round"
-          style={{ transition: "all 0.06s linear" }}
         />
         <circle
           cx={CX}
           cy={CY}
           r="7"
-          fill="#1a1a2e"
-          stroke="rgba(255,255,255,0.25)"
+          fill="#12141c"
+          stroke="rgba(255,255,255,0.28)"
           strokeWidth="1.5"
         />
         <circle cx={CX} cy={CY} r="3" fill="#ffd166" />
       </svg>
-
-      <div
-        style={{
-          position: "absolute",
-          left: "50%",
-          top: "46%",
-          transform: "translate(-50%, -50%)",
-          textAlign: "center",
-          pointerEvents: "none",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 52,
-            fontWeight: 900,
-            lineHeight: 1,
-            color: shifting ? "#f15bb5" : "#fff",
-            fontVariantNumeric: "tabular-nums",
-            textShadow: "0 2px 8px rgba(0,0,0,0.8)",
-            transition: "color 0.12s",
-          }}
-        >
-          {gearLabel}
-        </div>
-        <div
-          style={{
-            fontSize: 18,
-            fontWeight: 700,
-            color: "rgba(255,255,255,0.4)",
-            letterSpacing: 2,
-            marginTop: 20,
-          }}
-        >
-          {rpmDisplay}
-        </div>
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          left: "50%",
-          bottom: 28,
-          transform: "translateX(-50%)",
-          textAlign: "center",
-          pointerEvents: "none",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 40,
-            fontWeight: 900,
-            lineHeight: 1,
-            color: "#fff",
-            fontVariantNumeric: "tabular-nums",
-            textShadow: "0 2px 8px rgba(0,0,0,0.8)",
-          }}
-        >
-          {speedKmh}
-        </div>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: "rgba(255,255,255,0.5)",
-            letterSpacing: 3,
-            marginTop: 2,
-          }}
-        >
-          KM/H
-        </div>
-      </div>
     </div>
   );
 }

@@ -380,3 +380,16 @@ export const ALL_CAR_IDS = Object.keys(CARS);
 export function carOrStarter(id: string | undefined | null): CarSpec {
   return (id && CARS[id]) || CARS[STARTER_CAR_ID];
 }
+
+/** Pressão máx. de turbina (bar). 0 = aspirado — sem manômetro no HUD. */
+const BOOST_BAR_MAX: Record<string, number> = {
+  golf_gti: 1.35,
+  jetta: 1.1,
+  skyline_r34: 1.65,
+  supra_a90: 1.55,
+  m4_g82: 1.85,
+};
+
+export function carBoostBarMax(carId: string): number {
+  return BOOST_BAR_MAX[carId] ?? 0;
+}
