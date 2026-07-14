@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, type RefObject } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
+import { heightAt } from '@shared/track';
 
 export const sunWorldPos = new THREE.Vector3();
 const sunTarget = new THREE.Vector3();
@@ -145,7 +146,8 @@ export function ContactShadow({ targetRef }: FollowSunProps) {
     const shadow = ref.current;
     if (!car || !shadow) return;
     car.getWorldPosition(sunTarget);
-    shadow.position.set(sunTarget.x, 0.04, sunTarget.z);
+    // pista tem relevo real — cola a sombra na altura do asfalto local
+    shadow.position.set(sunTarget.x, heightAt(sunTarget.x, sunTarget.z) + 0.05, sunTarget.z);
     shadow.rotation.set(-Math.PI / 2, 0, Math.atan2(sunDir.x, sunDir.z));
   });
 

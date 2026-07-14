@@ -6,13 +6,13 @@ Corrida multiplayer no navegador. Entra, escolhe o carro e vai — sem instalar 
 
 Race Flow é um jogo de corrida online com física de verdade (não só “acelerar e desviar”). Você disputa voltas, pontua drift, treina sozinho contra o relógio ou aquece no treino livre.
 
-A pista é a **Eifelblick**. O grid fecha com até **8 pilotos**. O resultado da corrida é decidido no servidor — quem corta caminho ou teleporta não ganha vantagem.
+A pista é a **Nürburgring GP** (modelo 3D real do circuito, volta de ~5,1 km). O grid fecha com até **8 pilotos**. O resultado da corrida é decidido no servidor — quem corta caminho ou teleporta não ganha vantagem.
 
 ## Modos
 
 | Modo | Para quem |
 |------|-----------|
-| **Corrida online** | Grid completo, 3 voltas, checkpoints e pódio |
+| **Corrida online** | Grid completo, 2 voltas, checkpoints e pódio |
 | **Drift Challenge** | Dois minutos de estilo — ângulo × velocidade × combo |
 | **Time Trial** | Solo contra o relógio, com fantasma da sua melhor volta |
 | **Treino livre** | Sem pressão, para aprender o traçado e testar setup |

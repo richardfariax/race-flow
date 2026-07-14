@@ -156,6 +156,8 @@ export function PlayPage() {
   return (
     <div className="fixed inset-0">
       {ready && (
+        // near 1 (carro fica a ~8,5 m da câmera) dá 10x de precisão de
+        // profundidade e mata o z-fighting das muretas sem clipar nada
         <Canvas
           shadows
           dpr={[1, 1.5]}
@@ -165,10 +167,11 @@ export function PlayPage() {
             stencil: false,
             depth: true,
           }}
-          camera={{ fov: 50, position: [58, 5, -12], near: 0.1, far: 1400 }}
+          camera={{ fov: 50, position: [58, 5, -12], near: 1, far: 3600 }}
         >
           <color attach="background" args={["#7eb4e4"]} />
-          <fog attach="fog" args={["#a8c4b4", 150, 520]} />
+          {/* circuito de 5 km — névoa longe p/ revelar a pista (céu segue a câmera, raio 3300 < far 3600) */}
+          <fog attach="fog" args={["#a8c4b4", 700, 3200]} />
           <Suspense fallback={null}>
             <Physics timeStep={1 / 60}>
               <GameScene

@@ -11,6 +11,7 @@ import { Particles } from './Particles';
 import { GhostCar } from './GhostCar';
 import { Environment } from './Environment';
 import { ContactShadow, FillLights, FollowSun, OutdoorIBL, RenderPipeline } from './Lighting';
+import { PostFX } from './PostFX';
 import { preloadCarModels } from './GlbCar';
 
 interface GameSceneProps {
@@ -59,6 +60,7 @@ export function GameScene({
       {timetrial && <GhostCar />}
       <Particles />
       <FollowCamera targetRef={chassisMeshRef} />
+      <PostFX />
     </>
   );
 }
