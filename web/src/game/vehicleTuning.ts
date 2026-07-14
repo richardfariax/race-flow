@@ -36,7 +36,7 @@ export const BASE = {
   rearSuspensionMul: 1.0,
   sideFrictionStiffness: 1.15,
   flipResetSeconds: 2,
-  launchGripBase: 7.2,
+  launchGripBase: 9.0,
   launchSlipMaxSpeed: 11,
   /** frictionSlip traseiro com roda travada (quase zero = lock) */
   handbrakeSlipFactor: 0.12,
@@ -60,23 +60,24 @@ export const BASE = {
    * Gás sustenta; endireitar / frear recupera grip.
    */
   driftHoldCharge: 2.8,
-  driftHoldDecay: 0.72,
+  driftHoldDecay: 0.62,
   driftHoldThrottleSustain: 0.38,
   driftHoldSideBlend: 0.68,
   /** ângulo lateral memorizado no hold (~30°) */
   driftHoldSlipCap: 0.5,
   /** yaw PD durante drift — volante pede rotação, não ângulo absoluto */
   driftYawKp: 0.018,
-  driftYawKd: 0.016,
-  /** contra-esterço + gás: segura o deslize lateral */
-  driftCounterKp: 0.032,
-  driftCounterKd: 0.022,
+  /** amortecimento de yaw maior = menos snap/rodada ao iniciar o drift */
+  driftYawKd: 0.024,
+  /** contra-esterço + gás: segura o deslize lateral (Kp maior = sustenta melhor) */
+  driftCounterKp: 0.04,
+  driftCounterKd: 0.032,
   /** sustenta velocidade lateral com acelerador (ir de lado) */
   driftLatSustain: 0.011,
   /** impulso na direção do movimento (momentum do deslize) */
   driftVelCarry: 0.0016,
-  /** entrada com freio de mão: abre drift na direção do volante (fraco) */
-  driftEntryGain: 0.22,
+  /** entrada com freio de mão: abre drift na direção do volante (um pouco mais fácil) */
+  driftEntryGain: 0.28,
   /** autoridade máx. do volante no drift (evita lock = spin) */
   driftSteerAuthority: 0.4,
   /** grip dianteiro extra no drift — volante responde, traseira escorrega */
@@ -89,17 +90,18 @@ export const BASE = {
   offRoadBrakeFactor: 0.65,
   /**
    * Reduz ângulo máx. com a velocidade (1/(1+v·k)).
-   * Em ~100 km/h (~28 m/s) fica ~40% do lock; em 200 km/h ~25%.
+   * Em ~100 km/h (~28 m/s) fica ~36% do lock; em 200 km/h ~22%.
+   * (Menos falloff que antes p/ reduzir subesterço em média/alta.)
    */
-  steerSpeedFalloff: 0.078,
-  /** Rampa do input A/D (1/s) — tempo de virar o volante ~0,35 s */
-  steerInputRate: 2.85,
+  steerSpeedFalloff: 0.064,
+  /** Rampa do input A/D (1/s) — tempo de virar o volante ~0,28 s (mais responsivo) */
+  steerInputRate: 3.5,
   /** Retorno ao centro mais rápido (self-aligning) */
-  steerReturnRate: 4.4,
-  /** Fração da taxa de esterçamento que sobra em alta velocidade */
-  steerRespMin: 0.26,
-  /** reduz lock quando já está derrapando (evita oversteer em curva normal) */
-  steerSlipCutAngle: 0.38,
+  steerReturnRate: 5.0,
+  /** Fração da taxa de esterçamento que sobra em alta velocidade (mais autoridade) */
+  steerRespMin: 0.34,
+  /** reduz lock ao derrapar; maior = a frente crava mais (menos subesterço) */
+  steerSlipCutAngle: 0.44,
   /** acima de ~80 km/h: corte extra de direção e yaw */
   highSpeedSteerStart: 22,
   highSpeedSteerGain: 0.048,

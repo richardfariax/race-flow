@@ -23,8 +23,8 @@ export interface BrakeWheels {
   rear: number;
 }
 
-/** Ganho global de serviço (+20% em todos os veículos) */
-const SERVICE_BRAKE_GAIN = 1.2;
+/** Ganho global de serviço (+50% em todos os veículos — freada mais curta) */
+const SERVICE_BRAKE_GAIN = 1.5;
 
 /** Impulso mínimo por roda para ~0,9 g de desaceleração no Rapier */
 const BRAKE_PER_KG = 0.0505 * SERVICE_BRAKE_GAIN;

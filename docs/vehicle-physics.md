@@ -334,6 +334,31 @@ cenários (reta, freada, slalom, curva longa, drift). Guia por sintoma:
 **Não** faça: forças ilimitadas, alterar transform para esconder problema de
 física, criar objetos por frame, depender de FPS, silenciar erros.
 
+### Histórico de calibração
+
+**1º passo — dirigibilidade base** (curvas, aceleração, frenagem, drift). A
+validar dirigindo, com o painel Cmd+K:
+
+| Parâmetro | Antes → Depois | Alvo |
+|---|---|---|
+| `steerInputRate` | 2.85 → 3.5 | direção menos preguiçosa |
+| `steerRespMin` | 0.26 → 0.34 | mais autoridade em alta |
+| `steerSpeedFalloff` | 0.078 → 0.064 | menos subesterço em média/alta |
+| `steerSlipCutAngle` | 0.38 → 0.44 | a frente crava mais |
+| `steerReturnRate` | 4.4 → 5.0 | retorno mais firme |
+| `launchGripBase` | 7.2 → 9.0 | menos patinação, saída mais rápida |
+| `SERVICE_BRAKE_GAIN` (`braking.ts`) | 1.2 → 1.5 | freada mais curta |
+| `driftYawKd` | 0.016 → 0.024 | menos snap/pião ao iniciar |
+| `driftCounterKp` | 0.032 → 0.04 | sustenta melhor o ângulo |
+| `driftCounterKd` | 0.022 → 0.032 | drift mais amortecido |
+| `driftEntryGain` | 0.22 → 0.28 | drift mais fácil de iniciar |
+| `driftHoldDecay` | 0.72 → 0.62 | segura o drift um pouco mais |
+
+Reverter = trocar de volta em `vehicleTuning.ts` / `braking.ts`. Se a aceleração
+ainda parecer fraca **depois** de a largada enganchar, o próximo lever é o torque
+por carro (`shared/cars.ts` › `drivetrain.peakTorqueNm`) — não altera o teto de
+vmax do anti-cheat.
+
 ---
 
 ## 17. Roadmap (etapas de "feel" — exigem drive-test)
