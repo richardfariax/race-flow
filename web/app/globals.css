@@ -1,11 +1,8 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/inter/index.css';
-@import '@fontsource/barlow-condensed/600.css';
-@import '@fontsource/barlow-condensed/700.css';
 
 @theme inline {
-  --font-sans: 'Inter Variable', Inter, system-ui, sans-serif;
-  --font-display: 'Barlow Condensed', 'Inter Variable', sans-serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-barlow), var(--font-inter), sans-serif;
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));

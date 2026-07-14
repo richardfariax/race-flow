@@ -249,7 +249,6 @@ export function Vehicle({
   spawn,
   online,
   bodyColor,
-  accentColor: _accentColor,
   recordGhost = false,
 }: VehicleProps) {
   const chassisRef = useRef<RapierRigidBody>(null);
@@ -373,7 +372,6 @@ export function Vehicle({
       inputRef.current = null;
       carAudio.quiet();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [world, phys, car.id, wheelPos, geo.wheelRadius]);
 
   useEffect(() => {
@@ -629,13 +627,15 @@ export function Vehicle({
 
     const brakeInput = Math.min(1, brakePedal + engineBrakePedal);
     const roadPedal = onRoad ? brakeInput : brakeInput * BASE.offRoadBrakeFactor;
-    let { front: frontBrake, rear: rearBrake } = rapierServiceBrakes({
+    const brakes = rapierServiceBrakes({
       pedal: roadPedal,
       maxPerWheel: phys.brakeForce,
       massKg: phys.mass,
       frontBias: BASE.frontBrakeBias,
       absSpeedMs: absSpeed,
     });
+    let frontBrake = brakes.front;
+    const rearBrake = brakes.rear;
 
     // Compressão dianteira — só alivia perto do batente
     let frontCompression = 0;

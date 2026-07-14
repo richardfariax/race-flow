@@ -24,10 +24,10 @@ npm run dev            # ws://localhost:2567
 cd web
 cp .env.example .env   # opcional
 npm install
-npm run dev            # http://localhost:5173
+npm run dev            # http://localhost:3000
 ```
 
-Abra o endereço do Vite e jogue. O cliente aponta para `ws://localhost:2567` por padrão.
+Abra o endereço do Next.js e jogue. O cliente aponta para `ws://localhost:2567` por padrão.
 
 ### Variáveis (só se for usar conta / ranking)
 
@@ -35,9 +35,9 @@ Abra o endereço do Vite e jogue. O cliente aponta para `ws://localhost:2567` po
 
 | Variável | Função |
 |----------|--------|
-| `VITE_GAME_SERVER_URL` | WebSocket do servidor (`ws://localhost:2567`) |
-| `VITE_SUPABASE_URL` | Projeto Supabase |
-| `VITE_SUPABASE_ANON_KEY` | Chave anon |
+| `NEXT_PUBLIC_GAME_SERVER_URL` | WebSocket do servidor (`ws://localhost:2567`) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Projeto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave anon |
 
 **server/.env**
 
@@ -52,7 +52,7 @@ Schema SQL: `supabase/schema.sql` — aplique no SQL Editor do projeto se for pe
 ## Estrutura
 
 ```
-web/       cliente (React + Three.js)
+web/       cliente (Next.js + React + Three.js)
 server/    sala autoritativa (Colyseus)
 shared/    regras e specs compartilhadas (carros, pista, protocolo)
 supabase/  schema e RPCs
@@ -65,14 +65,13 @@ docs/      documentação
 
 | Peça | Uso |
 |------|-----|
-| React 19 + Vite 8 + TypeScript | UI e bundling |
+| React 19 + Next.js 15 (App Router) + TypeScript | UI, rotas e bundling |
 | React Three Fiber + Three.js | cena 3D |
 | Rapier (`@react-three/rapier`) | física do veículo |
 | Colyseus SDK | multiplayer em tempo real |
 | Supabase JS | auth e dados do jogador |
 | Zustand | estado de jogo / HUD |
 | Tailwind CSS 4 + shadcn/ui | interface |
-| React Router | rotas (home, garagem, play) |
 
 ### Servidor (`server/`)
 
@@ -96,6 +95,7 @@ Catálogo de carros, drivetrain, freio, pista, tuning, desafios e protocolo de r
 ```bash
 cd web && npm run build      # build de produção
 cd web && npm run typecheck
+cd web && npm run lint
 cd server && npm run typecheck
 ```
 

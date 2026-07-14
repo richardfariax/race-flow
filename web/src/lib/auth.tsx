@@ -183,9 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTunings(readLocalTunings());
   }, []);
 
-  const buyCar = useCallback(async (_carId: string) => {
-    return null;
-  }, []);
+  const buyCar = useCallback(async (): Promise<string | null> => null, []);
 
   const upgradeCar = useCallback(
     async (carId: string, category: string) => {

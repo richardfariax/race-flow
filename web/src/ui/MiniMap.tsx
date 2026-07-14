@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SAMPLES, TRACK } from '@shared/track';
 import { localCar } from '../net/localCar';

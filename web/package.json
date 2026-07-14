@@ -2,17 +2,15 @@
   "name": "race-flow-web",
   "private": true,
   "version": "0.1.0",
-  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint app src"
   },
   "dependencies": {
     "@colyseus/sdk": "^0.17.43",
-    "@fontsource-variable/inter": "^5.2.8",
-    "@fontsource/barlow-condensed": "^5.2.8",
     "@react-three/fiber": "^9.6.1",
     "@react-three/rapier": "^2.2.0",
     "@supabase/supabase-js": "^2.110.2",
@@ -29,11 +27,14 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.6",
     "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@types/three": "^0.185.1",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.20",
     "typescript": "~5.9.3"
   }
 }

@@ -1,3 +1,5 @@
+'use client';
+
 import { useHudStore } from '../state/hudStore';
 
 const SIZE = 118;
