@@ -24,6 +24,9 @@ import { rapierServiceBrakes, rapierHandbrakeRear } from '@shared/braking';
 import { resolveVehicleDrive, type VehicleDriveMode } from '@shared/vehicleDrive';
 import { heightAt, isOnDriveable, isOnRoad, surfaceAt } from '@shared/track';
 import { KeyboardInput, type InputSource } from '../input/input';
+import { BASE } from './vehicleTuning';
+import { telemetry, type HandlingState } from './telemetry';
+import { useDebugStore } from '../state/debugStore';
 import { useHudStore } from '../state/hudStore';
 import { useGameStore, type SpawnPose } from '../state/gameStore';
 import { localCar } from '../net/localCar';
@@ -39,93 +42,6 @@ import { ghostRecorder } from './ghost';
  * Dive de freada respeita o curso máx. da suspensão (batente).
  */
 
-const BASE = {
-  wheelHalfWidth: 0.1,
-  /** comprimento em repouso — attachment fica em WHEEL_REST_Y + isto */
-  suspensionRest: 0.52,
-  suspensionCompression: 5.4,
-  suspensionRelaxation: 5.8,
-  /** curso útil (~16 cm) — dive de freada até o batente, sem atravessar */
-  maxSuspensionTravel: 0.16,
-  frontSuspensionMul: 1.05,
-  rearSuspensionMul: 1.0,
-  sideFrictionStiffness: 1.15,
-  flipResetSeconds: 2,
-  launchGripBase: 7.2,
-  launchSlipMaxSpeed: 11,
-  /** frictionSlip traseiro com roda travada (quase zero = lock) */
-  handbrakeSlipFactor: 0.12,
-  /** bias frente/traseira */
-  frontBrakeBias: 0.58,
-  yawDampGain: 0.004,
-  /** ângulo de derrapagem sem freio de mão (~27°) */
-  slipAngleSoftCap: 0.48,
-  /** ângulo máx. de drift com freio de mão (~32° em alta) */
-  handbrakeDriftCap: 0.56,
-  pitchDampGain: 0.035,
-  antiWheeliePitch: 0.045,
-  antiWheelieForceCut: 0.35,
-  /** rampa do pedal de freio (1/s) — leve atraso hidráulico */
-  brakePedalRate: 14,
-  /** engate do freio de mão (1/s) — ~0,1 s até travar */
-  handbrakePedalRate: 10,
-  handbrakeReleaseRate: 12,
-  /**
-   * Após soltar o freio de mão: hold 0..1 mantém traseira leve (powerslide).
-   * Gás sustenta; endireitar / frear recupera grip.
-   */
-  driftHoldCharge: 2.8,
-  driftHoldDecay: 0.72,
-  driftHoldThrottleSustain: 0.38,
-  driftHoldSideBlend: 0.68,
-  /** ângulo lateral memorizado no hold (~30°) */
-  driftHoldSlipCap: 0.5,
-  /** yaw PD durante drift — volante pede rotação, não ângulo absoluto */
-  driftYawKp: 0.018,
-  driftYawKd: 0.016,
-  /** contra-esterço + gás: segura o deslize lateral */
-  driftCounterKp: 0.032,
-  driftCounterKd: 0.022,
-  /** sustenta velocidade lateral com acelerador (ir de lado) */
-  driftLatSustain: 0.011,
-  /** impulso na direção do movimento (momentum do deslize) */
-  driftVelCarry: 0.0016,
-  /** entrada com freio de mão: abre drift na direção do volante (fraco) */
-  driftEntryGain: 0.22,
-  /** autoridade máx. do volante no drift (evita lock = spin) */
-  driftSteerAuthority: 0.4,
-  /** grip dianteiro extra no drift — volante responde, traseira escorrega */
-  driftFrontGripMul: 1.14,
-  engineBrakeFactor: 0.1,
-  /** PD anti-dive na freada — suave para não brigar com a suspensão */
-  brakePitchKp: 2.2,
-  brakePitchKd: 1.1,
-  offRoadEngineFactor: 0.45,
-  offRoadBrakeFactor: 0.65,
-  /**
-   * Reduz ângulo máx. com a velocidade (1/(1+v·k)).
-   * Em ~100 km/h (~28 m/s) fica ~40% do lock; em 200 km/h ~25%.
-   */
-  steerSpeedFalloff: 0.078,
-  /** Rampa do input A/D (1/s) — tempo de virar o volante ~0,35 s */
-  steerInputRate: 2.85,
-  /** Retorno ao centro mais rápido (self-aligning) */
-  steerReturnRate: 4.4,
-  /** Fração da taxa de esterçamento que sobra em alta velocidade */
-  steerRespMin: 0.26,
-  /** reduz lock quando já está derrapando (evita oversteer em curva normal) */
-  steerSlipCutAngle: 0.38,
-  /** acima de ~80 km/h: corte extra de direção e yaw */
-  highSpeedSteerStart: 22,
-  highSpeedSteerGain: 0.048,
-  stabP: 11,
-  stabD: 4.5,
-  /** impulso extra ao encostar — elimina “creep” nos últimos cm/s */
-  creepBrakeGain: 4.2,
-  creepBrakeMaxSpeed: 3.5,
-  /** teto de velocidade em ré (~30% da vmax) */
-  reverseSpeedFrac: 0.32,
-};
 
 const FRONT = [0, 1];
 const REAR = [2, 3];
@@ -281,6 +197,10 @@ export function Vehicle({
   const driveModeRef = useRef<VehicleDriveMode>('coast');
   const boostRef = useRef(0);
   const boostMaxRef = useRef(0);
+  /** telemetria: throttle com sinal, torque de assistência aplicado, timer de reset */
+  const throttleSignedRef = useRef(0);
+  const assistYawRef = useRef(0);
+  const resettingRef = useRef(0);
   const { world } = useRapier();
   const setCluster = useHudStore((s) => s.setCluster);
   const setRedlineRpm = useHudStore((s) => s.setRedlineRpm);
@@ -371,6 +291,7 @@ export function Vehicle({
       input.dispose();
       inputRef.current = null;
       carAudio.quiet();
+      telemetry.live = false;
     };
   }, [world, phys, car.id, wheelPos, geo.wheelRadius]);
 
@@ -407,6 +328,7 @@ export function Vehicle({
     slideMomentumRef.current = 0;
     driveModeRef.current = 'coast';
     driveStateRef.current = createDriveState(phys.drivetrain.idleRpm);
+    resettingRef.current = 0.4;
   };
 
   useBeforePhysicsStep(() => {
@@ -787,6 +709,7 @@ export function Vehicle({
       );
     }
 
+    assistYawRef.current = 0;
     if (driveAllowed && absSpeed > 4) {
       const steerNorm = clamp(steerRef.current / Math.max(0.08, phys.maxSteerRad), -1, 1);
       const steerAuth = driftSteerAuthority(steerNorm, BASE.driftSteerAuthority);
@@ -846,6 +769,7 @@ export function Vehicle({
           const torque = angleHold + yawDamp + trimYaw;
           if (Math.abs(torque) > 1e-5) {
             chassis.applyTorqueImpulse({ x: 0, y: torque, z: 0 }, true);
+            assistYawRef.current += torque;
           }
 
           const wantLat = Math.max(
@@ -870,6 +794,7 @@ export function Vehicle({
           const yawAssist = (openYaw - yawRate) * mass * BASE.driftYawKp * hbPedal;
           if (Math.abs(yawAssist) > 1e-5) {
             chassis.applyTorqueImpulse({ x: 0, y: yawAssist, z: 0 }, true);
+            assistYawRef.current += yawAssist;
           }
         } else if (countering && driftHold > 0.1) {
           const held = clamp(Math.abs(driftAngleRef.current), 0.12, maxSlip) * slipSign;
@@ -879,6 +804,7 @@ export function Vehicle({
             yawRate * mass * BASE.driftCounterKd;
           if (Math.abs(stabilize) > 1e-5) {
             chassis.applyTorqueImpulse({ x: 0, y: stabilize, z: 0 }, true);
+            assistYawRef.current += stabilize;
           }
         } else if (driftHold > 0.1 && Math.abs(signedSlip) > 0.1) {
           const held = clamp(Math.abs(driftAngleRef.current), 0.12, maxSlip) * slipSign;
@@ -886,6 +812,7 @@ export function Vehicle({
           const coastHold = angleErr * mass * 0.004 * driftHold;
           if (Math.abs(coastHold) > 1e-5) {
             chassis.applyTorqueImpulse({ x: 0, y: coastHold, z: 0 }, true);
+            assistYawRef.current += coastHold;
           }
         }
 
@@ -917,6 +844,7 @@ export function Vehicle({
           -av.y * phys.mass * BASE.yawDampGain * (1 + over * 2.2) * 0.95 * hiDamp;
         if (Math.abs(yawDamp) > 1e-5) {
           chassis.applyTorqueImpulse({ x: 0, y: yawDamp, z: 0 }, true);
+          assistYawRef.current += yawDamp;
         }
         if (over > 0.12) {
           const straighten =
@@ -965,6 +893,7 @@ export function Vehicle({
 
     brakeActiveRef.current = (braking || hbActive) && absSpeed > 2;
     throttleMagRef.current = Math.abs(throttle);
+    throttleSignedRef.current = throttle;
 
     const boostMax = boostMaxRef.current;
     if (boostMax > 0) {
@@ -1115,6 +1044,65 @@ export function Vehicle({
         });
       });
     }
+
+    // Telemetria — só coleta com o painel de debug aberto (custo zero fora dele).
+    if (!useDebugStore.getState().enabled) return;
+    if (resettingRef.current > 0) {
+      resettingRef.current = Math.max(0, resettingRef.current - frameDt);
+    }
+    const forwardSpeed = velVec.dot(fwd);
+    const lateralSpeed = velVec.dot(right);
+    const signedSlip = absSpeed > 2 ? Math.atan2(lateralSpeed, forwardSpeed) : 0;
+    let wheelsOnGround = 0;
+    for (let i = 0; i < 4; i++) {
+      const w = telemetry.wheels[i];
+      w.contact = controller.wheelIsInContact(i);
+      if (w.contact) wheelsOnGround++;
+      w.load = controller.wheelSuspensionForce(i) ?? 0;
+      const len = controller.wheelSuspensionLength(i) ?? BASE.suspensionRest;
+      w.compression = THREE.MathUtils.clamp(
+        (BASE.suspensionRest - len) / BASE.maxSuspensionTravel,
+        0,
+        2,
+      );
+      w.steer = controller.wheelSteering(i) ?? 0;
+      w.longImpulse = controller.wheelForwardImpulse(i) ?? 0;
+      w.latImpulse = controller.wheelSideImpulse(i) ?? 0;
+      const g = wheelRefs.current[i];
+      if (g) {
+        g.getWorldPosition(wheelWorld);
+        w.onRoad = isOnRoad(wheelWorld.x, wheelWorld.z);
+      }
+    }
+    const slipMag = Math.abs(signedSlip);
+    const hbPedalNow = handbrakePedalRef.current;
+    const holdNow = driftHoldRef.current;
+    let state: HandlingState;
+    if (resettingRef.current > 0) state = 'RESETTING';
+    else if (wheelsOnGround === 0) state = 'AIRBORNE';
+    else if (hbPedalNow > 0.15 && slipMag < 0.25) state = 'DRIFT_ENTRY';
+    else if (slipMag > 0.12 && absSpeed > 5 && (hbPedalNow > 0.15 || holdNow > 0.12 || slipMag > 0.16))
+      state = 'DRIFT';
+    else if (holdNow > 0.05 && slipMag > 0.05) state = 'DRIFT_RECOVERY';
+    else state = 'GRIP';
+
+    telemetry.live = true;
+    telemetry.speedMs = speed;
+    telemetry.gear = gearRef.current;
+    telemetry.rpm = rpmRef.current;
+    telemetry.throttle = throttleSignedRef.current;
+    telemetry.brakePedal = brakePedalRef.current;
+    telemetry.handbrakePedal = hbPedalNow;
+    telemetry.steerAngle = steerRef.current;
+    telemetry.steerInput = steerInputRef.current;
+    telemetry.slipAngle = signedSlip;
+    telemetry.driftAngle = driftAngleRef.current;
+    telemetry.yawRate = chassis.angvel().y;
+    telemetry.driftHold = holdNow;
+    telemetry.assistYaw = assistYawRef.current;
+    telemetry.state = state;
+    telemetry.wheelsOnGround = wheelsOnGround;
+    telemetry.onRoad = onRoad;
   });
 
   // Lastro bem baixo: COM baixo = menos empino / capotamento

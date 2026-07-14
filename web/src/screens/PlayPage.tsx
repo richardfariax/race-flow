@@ -24,6 +24,8 @@ import { useGameStore, type SpawnPose } from "../state/gameStore";
 import { NetSession } from "../net/network";
 import { GameScene } from "../game/GameScene";
 import { HUD } from "../ui/HUD";
+import { DebugOverlay } from "../ui/DebugOverlay";
+import { PHYSICS_TIMESTEP } from "../game/vehicleTuning";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -173,7 +175,7 @@ export function PlayPage() {
           {/* circuito de 5 km — névoa longe p/ revelar a pista (céu segue a câmera, raio 3300 < far 3600) */}
           <fog attach="fog" args={["#a8c4b4", 700, 3200]} />
           <Suspense fallback={null}>
-            <Physics timeStep={1 / 60}>
+            <Physics timeStep={PHYSICS_TIMESTEP}>
               <GameScene
                 car={car}
                 tuning={tuning}
@@ -188,6 +190,7 @@ export function PlayPage() {
         </Canvas>
       )}
       <HUD online={online} />
+      <DebugOverlay />
 
       {timetrial && phase === "racing" && (
         <Button
